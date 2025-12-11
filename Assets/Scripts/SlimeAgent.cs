@@ -5,12 +5,15 @@ public class SlimeAgent : MonoBehaviour
 {
     public float inputIntensity = 0f;
 
+    // Link back to the tray for this player (set from GameManager)
+    [HideInInspector] public SlimeTray tray;
+
     private SlimeGameManager manager;
     private SlimeRenderer rend;
     private int id;
     private bool isEnemy;
 
-    private Vector2Int seedCell; // spawn position for respawn
+    private Vector2Int seedCell; // spawn position fallback (for enemies / no tray)
 
     private List<Vector2Int> activeFrontier = new List<Vector2Int>();
     private List<List<Vector2Int>> history = new List<List<Vector2Int>>();
@@ -45,8 +48,8 @@ public class SlimeAgent : MonoBehaviour
         }
         else
         {
-            // Player start from seed
-            Claim(seedCell.x, seedCell.y, initialPixels);
+            // PLAYERS: do NOT spawn slime at start.
+            // They will spawn from tray position when input > 0 via RespawnIfDead().
         }
 
         if (initialPixels.Count > 0)
@@ -68,7 +71,7 @@ public class SlimeAgent : MonoBehaviour
         {
             if (inputIntensity > 0f)
             {
-                // NEW: if player slime is completely gone, respawn at seed
+                // If player slime is completely gone, respawn at tray (or seed)
                 RespawnIfDead();
                 Grow(inputIntensity);
             }
@@ -109,9 +112,21 @@ public class SlimeAgent : MonoBehaviour
 
         List<Vector2Int> wave = new List<Vector2Int>();
 
-        // Clamp seed into bounds
-        int sx = Mathf.Clamp(seedCell.x, 0, manager.gridWidth - 1);
-        int sy = Mathf.Clamp(seedCell.y, 0, manager.gridHeight - 1);
+        int sx, sy;
+
+        // Prefer tray position as spawn location if we have one
+        if (tray != null)
+        {
+            Vector2Int g = manager.WorldToGrid(tray.transform.position);
+            sx = Mathf.Clamp(g.x, 0, manager.gridWidth - 1);
+            sy = Mathf.Clamp(g.y, 0, manager.gridHeight - 1);
+        }
+        else
+        {
+            // Fallback to original seedCell
+            sx = Mathf.Clamp(seedCell.x, 0, manager.gridWidth - 1);
+            sy = Mathf.Clamp(seedCell.y, 0, manager.gridHeight - 1);
+        }
 
         // If seed is on a wall, try to nudge to a nearby free cell
         if (manager.grid[sx, sy] == 1)
@@ -202,6 +217,10 @@ public class SlimeAgent : MonoBehaviour
         Vector2Int p = new Vector2Int(x, y);
         wave.Add(p);
         activeFrontier.Add(p);
+
+        // As soon as we have slime, freeze the tray (if this is a player with tray)
+        if (tray != null)
+            tray.SetFrozen(true);
     }
 
     bool TryPush(int x, int y, int enemyId)
@@ -214,8 +233,7 @@ public class SlimeAgent : MonoBehaviour
     // ---------------------------------------------------------
     void Shrink()
     {
-        // Never delete the first wave (seed). Otherwise slime can die forever.
-        if (history.Count <= 1) return;
+        if (history.Count == 0) return;
 
         List<Vector2Int> lastWave = history[history.Count - 1];
 
@@ -230,6 +248,10 @@ public class SlimeAgent : MonoBehaviour
         }
 
         history.RemoveAt(history.Count - 1);
+
+        // If no cells left after shrinking → allow tray to move again
+        if (tray != null && !HasAnyCells())
+            tray.SetFrozen(false);
     }
 
     // ---------------------------------------------------------

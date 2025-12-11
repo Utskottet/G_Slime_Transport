@@ -20,7 +20,10 @@ public class SlimeGameManager : MonoBehaviour
     public Transform spawnPointP3;
     public Transform spawnPointEnemy;
 
-    
+    [Header("Trays")]
+    public SlimeTray trayP1;
+    public SlimeTray trayP2;
+    public SlimeTray trayP3;
 
     [Header("Settings")]
     public int gridWidth = 400;
@@ -42,17 +45,18 @@ public class SlimeGameManager : MonoBehaviour
 
     void Start()
     {
-        if (Application.isPlaying) {
+        if (Application.isPlaying)
+        {
             InitMap();
             players.Clear();
             allAgents.Clear();
 
-            // Spawn Players (Order matters for Input 1, 2, 3)
-            SpawnFromTransform(2, spawnPointP1, Color.blue);      // P1 -> players[0]
-            SpawnFromTransform(3, spawnPointP2, Color.magenta);   // P2 -> players[1]
-            SpawnFromTransform(4, spawnPointP3, Color.yellow);    // P3 -> players[2]
+            // Spawn Players FROM TRAYS (no slime yet – they spawn when input > 0)
+            SpawnPlayerFromTray(2, trayP1, Color.blue);      // P1 -> players[0]
+            SpawnPlayerFromTray(3, trayP2, Color.magenta);   // P2 -> players[1]
+            SpawnPlayerFromTray(4, trayP3, Color.yellow);    // P3 -> players[2]
             
-            // Spawn Enemy
+            // Spawn Enemy (unchanged)
             if (spawnPointEnemy != null) SpawnFromTransform(5, spawnPointEnemy, Color.green, true);
             else CreateSlimeAgent(5, Vector2Int.zero, Color.green, true);
         }
@@ -66,7 +70,8 @@ public class SlimeGameManager : MonoBehaviour
         if (timer >= (1f / simulationSpeed))
         {
             timer = 0;
-            for (int i = allAgents.Count - 1; i >= 0; i--) {
+            for (int i = allAgents.Count - 1; i >= 0; i--)
+            {
                 if (allAgents[i] == null) allAgents.RemoveAt(i);
                 else allAgents[i].GameTick();
             }
@@ -127,6 +132,26 @@ public class SlimeGameManager : MonoBehaviour
         CreateSlimeAgent(id, gridPos, c, isEnemy);
     }
 
+    // NEW: spawn player agent bound to a tray
+    void SpawnPlayerFromTray(int id, SlimeTray tray, Color c)
+    {
+        if (tray == null)
+        {
+            Debug.LogWarning($"No tray assigned for player id {id}");
+            return;
+        }
+
+        Vector2Int gridPos = WorldToGrid(tray.transform.position);
+        gridPos.x = Mathf.Clamp(gridPos.x, 0, gridWidth - 1);
+        gridPos.y = Mathf.Clamp(gridPos.y, 0, gridHeight - 1);
+
+        SlimeAgent agent = CreateSlimeAgent(id, gridPos, c, false);
+
+        // connect both ways
+        agent.tray = tray;
+        tray.owner = agent;
+    }
+
     void InitMap()
     {
         if (obstacleMap == null) return;
@@ -138,8 +163,10 @@ public class SlimeGameManager : MonoBehaviour
         float rX = (float)obstacleMap.width / gridWidth;
         float rY = (float)obstacleMap.height / gridHeight;
 
-        for (int y = 0; y < gridHeight; y++) {
-            for (int x = 0; x < gridWidth; x++) {
+        for (int y = 0; y < gridHeight; y++)
+        {
+            for (int x = 0; x < gridWidth; x++)
+            {
                 int sx = Mathf.Clamp((int)(x * rX), 0, obstacleMap.width - 1);
                 int sy = Mathf.Clamp((int)(y * rY), 0, obstacleMap.height - 1);
                 Color p = obstacleMap.GetPixel(sx, sy);
@@ -152,18 +179,22 @@ public class SlimeGameManager : MonoBehaviour
     void UpdateBackgroundVisuals()
     {
         GameObject bg = GameObject.Find("Background_House");
-        if (bg == null) {
+        if (bg == null)
+        {
             bg = new GameObject("Background_House");
             bg.transform.position = new Vector3(0, 0, 1);
             bgRenderer = bg.AddComponent<SpriteRenderer>();
-        } else {
+        }
+        else
+        {
             bgRenderer = bg.GetComponent<SpriteRenderer>();
         }
 
         Texture2D texToShow = showObstacleMap ? obstacleMap : houseImage;
-        if (texToShow != null) {
-            bgRenderer.sprite = Sprite.Create(texToShow, new Rect(0,0, texToShow.width, texToShow.height), new Vector2(0.5f, 0.5f), 100f);
-            float targetHeight = 10.8f; 
+        if (texToShow != null)
+        {
+            bgRenderer.sprite = Sprite.Create(texToShow, new Rect(0, 0, texToShow.width, texToShow.height), new Vector2(0.5f, 0.5f), 100f);
+            float targetHeight = 10.8f;
             float scaleY = targetHeight / (texToShow.height / 100f);
             float targetWidth = (float)texToShow.width / texToShow.height * targetHeight;
             float scaleX = targetWidth / (texToShow.width / 100f);
@@ -171,21 +202,24 @@ public class SlimeGameManager : MonoBehaviour
         }
     }
 
-    void CreateSlimeAgent(int id, Vector2Int startSeed, Color c, bool isEnemy)
+    SlimeAgent CreateSlimeAgent(int id, Vector2Int startSeed, Color c, bool isEnemy)
     {
         GameObject go = new GameObject(isEnemy ? "Enemy" : "Player_ID" + id);
         SlimeRenderer rend = go.AddComponent<SlimeRenderer>();
         float aspect = 1.77f;
-        if(bgRenderer && bgRenderer.bounds.size.y > 0) aspect = bgRenderer.bounds.size.x / bgRenderer.bounds.size.y;
+        if (bgRenderer && bgRenderer.bounds.size.y > 0) aspect = bgRenderer.bounds.size.x / bgRenderer.bounds.size.y;
         
         rend.Init(this, c, slimeShader, aspect);
         SlimeAgent agent = go.AddComponent<SlimeAgent>();
         agent.Init(this, rend, id, startSeed, isEnemy);
         allAgents.Add(agent);
         if (!isEnemy) players.Add(agent);
+
+        return agent;
     }
 
-    public Vector2Int WorldToGrid(Vector3 worldPos) {
+    public Vector2Int WorldToGrid(Vector3 worldPos)
+    {
         if (!bgRenderer) return Vector2Int.zero;
         Bounds b = bgRenderer.bounds;
         float nx = (worldPos.x - b.min.x) / b.size.x;
@@ -193,19 +227,24 @@ public class SlimeGameManager : MonoBehaviour
         return new Vector2Int(Mathf.FloorToInt(nx * gridWidth), Mathf.FloorToInt(ny * gridHeight));
     }
 
-    void OnDrawGizmos() {
+    void OnDrawGizmos()
+    {
         if (!bgRenderer) return;
         Bounds b = bgRenderer.bounds;
-        if (showDebugGrid && grid != null) {
+        if (showDebugGrid && grid != null)
+        {
             Gizmos.color = new Color(1, 0, 0, 0.3f);
             float cellW = b.size.x / gridWidth;
             float cellH = b.size.y / gridHeight;
-            for (int y = 0; y < gridHeight; y+=2) {
-                for (int x = 0; x < gridWidth; x+=2) {
-                    if (grid[x, y] == 1) {
+            for (int y = 0; y < gridHeight; y += 2)
+            {
+                for (int x = 0; x < gridWidth; x += 2)
+                {
+                    if (grid[x, y] == 1)
+                    {
                         float wx = b.min.x + (x * cellW) + (cellW * 0.5f);
                         float wy = b.min.y + (y * cellH) + (cellH * 0.5f);
-                        Gizmos.DrawCube(new Vector3(wx, wy, -0.1f), new Vector3(cellW*2, cellH*2, 0.1f));
+                        Gizmos.DrawCube(new Vector3(wx, wy, -0.1f), new Vector3(cellW * 2, cellH * 2, 0.1f));
                     }
                 }
             }
@@ -214,7 +253,9 @@ public class SlimeGameManager : MonoBehaviour
         CheckSpawnGizmo(spawnPointP2, Color.magenta);
         CheckSpawnGizmo(spawnPointP3, Color.yellow);
     }
-    void CheckSpawnGizmo(Transform t, Color c) {
+
+    void CheckSpawnGizmo(Transform t, Color c)
+    {
         if (t == null) return;
         Vector2Int g = WorldToGrid(t.position);
         // IsValid checks if inside bounds AND not a wall
