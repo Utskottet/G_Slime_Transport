@@ -6,6 +6,7 @@ public class SlimeRenderer : MonoBehaviour
     private Texture2D maskTex;
     private Color32[] colors;
     private int myId;
+    private Material mat;
 
     public void Init(SlimeGameManager mgr, Color c, Shader shader, float aspect)
     {
@@ -14,7 +15,7 @@ public class SlimeRenderer : MonoBehaviour
         int h = manager.gridHeight;
 
         maskTex = new Texture2D(w, h, TextureFormat.R8, false);
-        maskTex.filterMode = FilterMode.Bilinear; // Critical for smooth look
+        maskTex.filterMode = FilterMode.Bilinear;
         maskTex.wrapMode = TextureWrapMode.Clamp;
         
         colors = new Color32[w * h];
@@ -35,11 +36,19 @@ public class SlimeRenderer : MonoBehaviour
         m.triangles = new int[] { 0, 2, 1, 2, 3, 1 };
         mf.mesh = m;
 
-        Material mat = new Material(shader);
+        mat = new Material(shader);
         mat.SetColor("_Color", c);
+        mat.SetColor("_ColorDark", c * 0.6f);
+        mat.SetColor("_EdgeColor", c + new Color(0.3f, 0.3f, 0.3f, 0f));
         mat.SetTexture("_MainTex", maskTex);
-        mat.SetFloat("_Cutoff", 0.1f); 
-        mat.SetFloat("_Bevel", 3.0f);
+        mat.SetFloat("_Cutoff", 0.1f);
+        
+        // Pass obstacle map to shader
+        if (manager.obstacleMap != null)
+        {
+            mat.SetTexture("_ObstacleTex", manager.obstacleMap);
+        }
+        
         mr.material = mat;
     }
 
@@ -59,7 +68,7 @@ public class SlimeRenderer : MonoBehaviour
 
             if (grid[x, y] == myId)
             {
-                int val = thick[x,y] + 50; // Ensure visibility
+                int val = thick[x,y] + 50;
                 if (val > 255) val = 255;
                 colors[i] = new Color32((byte)val, 0, 0, 255);
             }
