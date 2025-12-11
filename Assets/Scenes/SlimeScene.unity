@@ -488,7 +488,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
-  m_Sprite: {fileID: 1598899700}
+  m_Sprite: {fileID: 1832684800}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -643,7 +643,12 @@ MonoBehaviour:
   trayP3: {fileID: 68355136}
   gridWidth: 400
   gridHeight: 112
-  simulationSpeed: 43.9
+  simulationSpeed: 60
+  slimeWinPercent: 0.95
+  playerWinPercent: 0.1
+  enemyId: 5
+  winCheckDelay: 15
+  phase: 0
   players: []
   allAgents: []
 --- !u!4 &867556023
@@ -956,7 +961,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!213 &1598899700
+--- !u!213 &1832684800
 Sprite:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

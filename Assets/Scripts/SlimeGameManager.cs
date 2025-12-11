@@ -1,5 +1,7 @@
 using UnityEngine;
+using System.Collections;
 using System.Collections.Generic;
+using UnityEngine.SceneManagement;
 
 [ExecuteAlways]
 public class SlimeGameManager : MonoBehaviour
@@ -14,13 +16,13 @@ public class SlimeGameManager : MonoBehaviour
     public bool showObstacleMap = false;
     public bool showDebugGrid = true;
 
-    [Header("Spawn Points")]
+    [Header("Spawn Points (Enemy only uses this)")]
     public Transform spawnPointP1;
     public Transform spawnPointP2;
     public Transform spawnPointP3;
     public Transform spawnPointEnemy;
 
-    [Header("Trays")]
+    [Header("Trays (Players spawn from these)")]
     public SlimeTray trayP1;
     public SlimeTray trayP2;
     public SlimeTray trayP3;
@@ -29,19 +31,55 @@ public class SlimeGameManager : MonoBehaviour
     public int gridWidth = 400;
     public int gridHeight = 112;
     [Range(1, 60)] public float simulationSpeed = 20f;
-    
+
+    [Header("Game Rules")]
+    [Tooltip("If enemy slime covers this fraction of non-wall cells, slime wins.")]
+    public float slimeWinPercent = 0.95f;  // 95% = lose
+
+    [Tooltip("If enemy slime is pushed down below this fraction, players win.")]
+    public float playerWinPercent = 0.05f; // 5% = win
+
+    [Tooltip("ID used for enemy slime in the grid.")]
+    public int enemyId = 5;
+
+    [Tooltip("Seconds after start before win/lose can trigger.")]
+    public float winCheckDelay = 8f;       // tweak in Inspector
+
+    [Tooltip("Seconds to show WIN FX before restart.")]
+    public float playerWinDelay = 6f;
+
+    [Tooltip("Seconds to show LOSE FX before restart.")]
+    public float slimeWinDelay = 4f;
+
+    [Header("Win/Lose FX (optional)")]
+    public GameObject playerWinFx;   // coinrain, WIN-text
+    public GameObject slimeWinFx;    // SLIME WINS-text
+
+    public enum GamePhase { Playing, PlayerWin, SlimeWin }
+    [HideInInspector] public GamePhase phase = GamePhase.Playing;
+
     // Internal
-    [HideInInspector] public byte[,] grid; 
-    [HideInInspector] public byte[,] gridThickness; 
+    [HideInInspector] public byte[,] grid;
+    [HideInInspector] public byte[,] gridThickness;
     private SpriteRenderer bgRenderer;
-    
+
     public List<SlimeAgent> players = new List<SlimeAgent>();
     public List<SlimeAgent> allAgents = new List<SlimeAgent>();
-    
-    private float timer;
 
-    void OnValidate() { InitMap(); UpdateBackgroundVisuals(); }
-    void OnEnable() { InitMap(); }
+    private float timer;
+    private float gameTime;   // <-- added
+
+
+    void OnValidate()
+    {
+        InitMap();
+        UpdateBackgroundVisuals();
+    }
+
+    void OnEnable()
+    {
+        InitMap();
+    }
 
     void Start()
     {
@@ -51,78 +89,175 @@ public class SlimeGameManager : MonoBehaviour
             players.Clear();
             allAgents.Clear();
 
-            // Spawn Players FROM TRAYS (no slime yet – they spawn when input > 0)
+            // Players spawn from trays
             SpawnPlayerFromTray(2, trayP1, Color.blue);      // P1 -> players[0]
             SpawnPlayerFromTray(3, trayP2, Color.magenta);   // P2 -> players[1]
             SpawnPlayerFromTray(4, trayP3, Color.yellow);    // P3 -> players[2]
-            
-            // Spawn Enemy (unchanged)
-            if (spawnPointEnemy != null) SpawnFromTransform(5, spawnPointEnemy, Color.green, true);
-            else CreateSlimeAgent(5, Vector2Int.zero, Color.green, true);
+
+            // Enemy spawn (pattern handled inside SlimeAgent.Init)
+            if (spawnPointEnemy != null)
+                SpawnFromTransform(enemyId, spawnPointEnemy, Color.green, true);
+            else
+                CreateSlimeAgent(enemyId, Vector2Int.zero, Color.green, true);
+
+            phase = GamePhase.Playing;
         }
     }
 
-    void Update()
+void Update()
+{
+    if (!Application.isPlaying) return;
+    if (phase != GamePhase.Playing) return;
+
+    // Track how long the game has been running
+    gameTime += Time.deltaTime;
+
+    // --- SIMULATION TICKING ---
+    timer += Time.deltaTime;
+    if (timer >= (1f / simulationSpeed))
     {
-        if (!Application.isPlaying) return;
-
-        timer += Time.deltaTime;
-        if (timer >= (1f / simulationSpeed))
+        timer = 0f;
+        for (int i = allAgents.Count - 1; i >= 0; i--)
         {
-            timer = 0;
-            for (int i = allAgents.Count - 1; i >= 0; i--)
-            {
-                if (allAgents[i] == null) allAgents.RemoveAt(i);
-                else allAgents[i].GameTick();
-            }
+            if (allAgents[i] == null)
+                allAgents.RemoveAt(i);
+            else
+                allAgents[i].GameTick();
         }
-
-        // --- ROBUST INPUT ---
-        // We check 3 different keys for each player to be safe.
-        
-        float p1 = 0f;
-        if (debugAutoGrow || Input.GetKey(KeyCode.Alpha1) || Input.GetKey(KeyCode.Keypad1) || Input.GetKey(KeyCode.A)) p1 = 1f;
-
-        float p2 = 0f;
-        if (debugAutoGrow || Input.GetKey(KeyCode.Alpha2) || Input.GetKey(KeyCode.Keypad2) || Input.GetKey(KeyCode.S)) p2 = 1f;
-
-        float p3 = 0f;
-        if (debugAutoGrow || Input.GetKey(KeyCode.Alpha3) || Input.GetKey(KeyCode.Keypad3) || Input.GetKey(KeyCode.D)) p3 = 1f;
-
-        // Apply to Agents
-        if (players.Count > 0 && players[0]) players[0].inputIntensity = p1;
-        if (players.Count > 1 && players[1]) players[1].inputIntensity = p2;
-        if (players.Count > 2 && players[2]) players[2].inputIntensity = p3;
     }
+
+    // --- INPUT ---
+    float p1 = 0f;
+    if (debugAutoGrow || Input.GetKey(KeyCode.Alpha1) || Input.GetKey(KeyCode.Keypad1) || Input.GetKey(KeyCode.A))
+        p1 = 1f;
+
+    float p2 = 0f;
+    if (debugAutoGrow || Input.GetKey(KeyCode.Alpha2) || Input.GetKey(KeyCode.Keypad2) || Input.GetKey(KeyCode.S))
+        p2 = 1f;
+
+    float p3 = 0f;
+    if (debugAutoGrow || Input.GetKey(KeyCode.Alpha3) || Input.GetKey(KeyCode.Keypad3) || Input.GetKey(KeyCode.D))
+        p3 = 1f;
+
+    if (players.Count > 0 && players[0]) players[0].inputIntensity = p1;
+    if (players.Count > 1 && players[1]) players[1].inputIntensity = p2;
+    if (players.Count > 2 && players[2]) players[2].inputIntensity = p3;
+
+    // --- GAME RULES: WIN/LOSE ---
+
+    // Do NOT check win/lose until the game has had time to "start"
+    if (gameTime < winCheckDelay)
+        return;
+
+    float coverage = GetEnemyCoverage();
+
+    // Ignorera mikro-slim (<1%)
+    if (coverage < 0.01f)
+        return;
+
+    // Slime wins
+    if (coverage >= slimeWinPercent)
+    {
+        SlimeWins();
+    }
+    // Players win (else if så båda inte triggar samma frame)
+    else if (coverage <= playerWinPercent)
+    {
+        PlayersWin();
+    }
+}
 
     // --- ON SCREEN DEBUG GUI ---
-    // This draws bars on screen so you KNOW if the key is working.
     void OnGUI()
     {
         if (!Application.isPlaying) return;
-        
+
         GUIStyle style = new GUIStyle(GUI.skin.box);
         style.fontSize = 20;
         style.fontStyle = FontStyle.Bold;
         style.normal.textColor = Color.white;
 
-        // P1 STATUS
         float v1 = (players.Count > 0 && players[0]) ? players[0].inputIntensity : 0;
         GUI.backgroundColor = v1 > 0 ? Color.blue : Color.gray;
         GUI.Box(new Rect(10, 10, 200, 40), $"P1 (Key 1/A): {v1}", style);
 
-        // P2 STATUS
         float v2 = (players.Count > 1 && players[1]) ? players[1].inputIntensity : 0;
         GUI.backgroundColor = v2 > 0 ? Color.magenta : Color.gray;
         GUI.Box(new Rect(10, 60, 200, 40), $"P2 (Key 2/S): {v2}", style);
 
-        // P3 STATUS
         float v3 = (players.Count > 2 && players[2]) ? players[2].inputIntensity : 0;
         GUI.backgroundColor = v3 > 0 ? Color.yellow : Color.gray;
         GUI.Box(new Rect(10, 110, 200, 40), $"P3 (Key 3/D): {v3}", style);
+
+        float coverage = GetEnemyCoverage();
+        GUI.backgroundColor = Color.black;
+        GUI.Box(new Rect(10, 160, 260, 40), $"Enemy coverage: {(coverage * 100f):0.0}% ({phase})", style);
     }
 
-    // --- STANDARD LOGIC ---
+    // --- GAME RULE HELPERS ---
+    float GetEnemyCoverage()
+    {
+        if (grid == null) return 0f;
+
+        int totalPlayable = 0;
+        int enemyCells = 0;
+
+        for (int x = 0; x < gridWidth; x++)
+        {
+            for (int y = 0; y < gridHeight; y++)
+            {
+                byte cell = grid[x, y];
+
+                if (cell == 1) // wall
+                    continue;
+
+                totalPlayable++;
+
+                if (cell == enemyId)
+                    enemyCells++;
+            }
+        }
+
+        if (totalPlayable == 0) return 0f;
+        return (float)enemyCells / totalPlayable;
+    }
+
+    IEnumerator RestartSceneRoutine(float delay)
+    {
+    yield return new WaitForSeconds(delay);
+    Scene current = SceneManager.GetActiveScene();
+    SceneManager.LoadScene(current.buildIndex);
+    }
+
+    void SlimeWins()
+    {
+    if (phase != GamePhase.Playing) return;
+
+    phase = GamePhase.SlimeWin;
+    Debug.Log($"SLIME WINS – coverage: {GetEnemyCoverage() * 100f:0.0}%");
+
+    // visa lose-FX
+    if (slimeWinFx != null)
+        slimeWinFx.SetActive(true);
+
+    StartCoroutine(RestartSceneRoutine(slimeWinDelay));
+}
+
+void PlayersWin()
+{
+    if (phase != GamePhase.Playing) return;
+
+    phase = GamePhase.PlayerWin;
+    Debug.Log($"PLAYERS WIN – coverage: {GetEnemyCoverage() * 100f:0.0}%");
+
+    // visa win-FX (coinrain, text osv)
+    if (playerWinFx != null)
+        playerWinFx.SetActive(true);
+
+    StartCoroutine(RestartSceneRoutine(playerWinDelay));
+}
+
+    // --- SPAWNING ---
     void SpawnFromTransform(int id, Transform t, Color c, bool isEnemy = false)
     {
         if (t == null) return;
@@ -132,7 +267,6 @@ public class SlimeGameManager : MonoBehaviour
         CreateSlimeAgent(id, gridPos, c, isEnemy);
     }
 
-    // NEW: spawn player agent bound to a tray
     void SpawnPlayerFromTray(int id, SlimeTray tray, Color c)
     {
         if (tray == null)
@@ -147,7 +281,6 @@ public class SlimeGameManager : MonoBehaviour
 
         SlimeAgent agent = CreateSlimeAgent(id, gridPos, c, false);
 
-        // connect both ways
         agent.tray = tray;
         tray.owner = agent;
     }
@@ -193,7 +326,11 @@ public class SlimeGameManager : MonoBehaviour
         Texture2D texToShow = showObstacleMap ? obstacleMap : houseImage;
         if (texToShow != null)
         {
-            bgRenderer.sprite = Sprite.Create(texToShow, new Rect(0, 0, texToShow.width, texToShow.height), new Vector2(0.5f, 0.5f), 100f);
+            bgRenderer.sprite = Sprite.Create(texToShow,
+                new Rect(0, 0, texToShow.width, texToShow.height),
+                new Vector2(0.5f, 0.5f),
+                100f);
+
             float targetHeight = 10.8f;
             float scaleY = targetHeight / (texToShow.height / 100f);
             float targetWidth = (float)texToShow.width / texToShow.height * targetHeight;
@@ -207,8 +344,9 @@ public class SlimeGameManager : MonoBehaviour
         GameObject go = new GameObject(isEnemy ? "Enemy" : "Player_ID" + id);
         SlimeRenderer rend = go.AddComponent<SlimeRenderer>();
         float aspect = 1.77f;
-        if (bgRenderer && bgRenderer.bounds.size.y > 0) aspect = bgRenderer.bounds.size.x / bgRenderer.bounds.size.y;
-        
+        if (bgRenderer && bgRenderer.bounds.size.y > 0)
+            aspect = bgRenderer.bounds.size.x / bgRenderer.bounds.size.y;
+
         rend.Init(this, c, slimeShader, aspect);
         SlimeAgent agent = go.AddComponent<SlimeAgent>();
         agent.Init(this, rend, id, startSeed, isEnemy);
@@ -244,7 +382,8 @@ public class SlimeGameManager : MonoBehaviour
                     {
                         float wx = b.min.x + (x * cellW) + (cellW * 0.5f);
                         float wy = b.min.y + (y * cellH) + (cellH * 0.5f);
-                        Gizmos.DrawCube(new Vector3(wx, wy, -0.1f), new Vector3(cellW * 2, cellH * 2, 0.1f));
+                        Gizmos.DrawCube(new Vector3(wx, wy, -0.1f),
+                            new Vector3(cellW * 2, cellH * 2, 0.1f));
                     }
                 }
             }
@@ -258,8 +397,9 @@ public class SlimeGameManager : MonoBehaviour
     {
         if (t == null) return;
         Vector2Int g = WorldToGrid(t.position);
-        // IsValid checks if inside bounds AND not a wall
-        bool isSafe = g.x >= 0 && g.x < gridWidth && g.y >= 0 && g.y < gridHeight && (grid == null || grid[g.x, g.y] == 0);
+        bool isSafe = g.x >= 0 && g.x < gridWidth &&
+                      g.y >= 0 && g.y < gridHeight &&
+                      (grid == null || grid[g.x, g.y] == 0);
         Gizmos.color = isSafe ? c : Color.red;
         Gizmos.DrawSphere(t.position, 0.3f);
         if (!isSafe) Gizmos.DrawWireSphere(t.position, 0.6f);

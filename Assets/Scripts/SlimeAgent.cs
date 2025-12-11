@@ -13,12 +13,15 @@ public class SlimeAgent : MonoBehaviour
     private int id;
     private bool isEnemy;
 
-    private Vector2Int seedCell; // spawn position fallback (for enemies / no tray)
+    private Vector2Int seedCell; // fallback spawn position
 
     private List<Vector2Int> activeFrontier = new List<Vector2Int>();
     private List<List<Vector2Int>> history = new List<List<Vector2Int>>();
 
     private int pushBias = 1;
+
+    // Enemy only: per-column growth speed
+    private float[] enemyColumnSpeed;
 
     // ---------------------------------------------------------
     // INIT
@@ -33,22 +36,33 @@ public class SlimeAgent : MonoBehaviour
 
         rend.SetId(id);
 
+        // Per-column speed variation for enemy slime
+        if (isEnemy)
+        {
+            enemyColumnSpeed = new float[manager.gridWidth];
+            for (int x = 0; x < manager.gridWidth; x++)
+            {
+                // tweak range for more/less contrast in speed
+                enemyColumnSpeed[x] = Random.Range(0.1f, 6.0f);
+            }
+        }
+
         List<Vector2Int> initialPixels = new List<Vector2Int>();
 
-if (isEnemy)
+        if (isEnemy)
         {
-            // Slimy band across the top with random holes.
-            float fillProbability = 0.1f;   // 0..1, higher = more slime
+            // Slimy band across the top with random holes and vertical offsets
+            float fillProbability = 0.1f;   // lower => more holes
 
             for (int x = 0; x < manager.gridWidth; x++)
             {
-                // random hole
+                // create random gaps horizontally
                 if (Random.value > fillProbability)
                     continue;
 
                 int ySeed = -1;
 
-                // find highest free cell in this column (top-down)
+                // find highest free cell in this column
                 for (int y = manager.gridHeight - 1; y >= 0; y--)
                 {
                     if (manager.grid[x, y] == 0)    // not a wall
@@ -58,11 +72,22 @@ if (isEnemy)
                     }
                 }
 
-                // column fully blocked
                 if (ySeed == -1)
-                    continue;
+                    continue;   // column fully blocked
 
-                Claim(x, ySeed, initialPixels);
+                // random vertical offset to avoid flat line
+                int offset = Random.Range(0, 4);   // 0–3 pixels downward
+                int yFinal = Mathf.Max(0, ySeed - offset);
+
+                Claim(x, yFinal, initialPixels);
+
+                // Optional: a second row below sometimes for extra thickness
+                if (Random.value < 0.3f)
+                {
+                    int yBelow = Mathf.Max(0, yFinal - 1);
+                    if (manager.grid[x, yBelow] == 0)
+                        Claim(x, yBelow, initialPixels);
+                }
             }
         }
         else
@@ -76,6 +101,7 @@ if (isEnemy)
 
         rend.UpdateTexture();
     }
+
     // ---------------------------------------------------------
     // MAIN TICK
     // ---------------------------------------------------------
@@ -132,7 +158,7 @@ if (isEnemy)
 
         int sx, sy;
 
-        // Prefer tray position as spawn location if we have one
+        // Prefer tray position if we have a tray
         if (tray != null)
         {
             Vector2Int g = manager.WorldToGrid(tray.transform.position);
@@ -141,7 +167,7 @@ if (isEnemy)
         }
         else
         {
-            // Fallback to original seedCell
+            // fallback to original seedCell
             sx = Mathf.Clamp(seedCell.x, 0, manager.gridWidth - 1);
             sy = Mathf.Clamp(seedCell.y, 0, manager.gridHeight - 1);
         }
@@ -185,7 +211,7 @@ if (isEnemy)
         {
             RebuildFrontier();
             if (activeFrontier.Count == 0)
-                return; // truly dead or stuck (enemy) – players will be handled by RespawnIfDead
+                return; // truly dead or stuck
         }
 
         int growthBudget = Mathf.CeilToInt(20 * strength);
@@ -196,7 +222,38 @@ if (isEnemy)
             if (activeFrontier.Count == 0)
                 break;
 
-            int rndIndex = Random.Range(0, activeFrontier.Count);
+            int rndIndex;
+
+            // Enemy: weighted pick so some columns grow faster
+            if (isEnemy && enemyColumnSpeed != null && enemyColumnSpeed.Length == manager.gridWidth)
+            {
+                float totalW = 0f;
+                for (int k = 0; k < activeFrontier.Count; k++)
+                {
+                    int colX = activeFrontier[k].x;
+                    totalW += enemyColumnSpeed[colX];
+                }
+
+                float r = Random.value * totalW;
+                rndIndex = 0;
+                for (int k = 0; k < activeFrontier.Count; k++)
+                {
+                    int colX = activeFrontier[k].x;
+                    float w = enemyColumnSpeed[colX];
+                    if (r <= w)
+                    {
+                        rndIndex = k;
+                        break;
+                    }
+                    r -= w;
+                }
+            }
+            else
+            {
+                // Players: uniform random
+                rndIndex = Random.Range(0, activeFrontier.Count);
+            }
+
             Vector2Int growSource = activeFrontier[rndIndex];
             bool grew = false;
 
@@ -236,7 +293,7 @@ if (isEnemy)
         wave.Add(p);
         activeFrontier.Add(p);
 
-        // As soon as we have slime, freeze the tray (if this is a player with tray)
+        // As soon as we have slime, freeze the tray (for players)
         if (tray != null)
             tray.SetFrozen(true);
     }
