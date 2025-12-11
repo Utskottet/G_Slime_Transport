@@ -20,6 +20,8 @@ public class SlimeGameManager : MonoBehaviour
     public Transform spawnPointP3;
     public Transform spawnPointEnemy;
 
+    
+
     [Header("Settings")]
     public int gridWidth = 400;
     public int gridHeight = 112;
