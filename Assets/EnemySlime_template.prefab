@@ -1,0 +1,70 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &7785248851187559969
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7701370547729767057}
+  - component: {fileID: 2248134922170725229}
+  - component: {fileID: 2284305601743861922}
+  m_Layer: 0
+  m_Name: EnemySlime_template
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7701370547729767057
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7785248851187559969}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 14.04555, y: 7.7385745, z: -0.059181664}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2248134922170725229
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7785248851187559969}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 97837cccf74c14e83a692cfab1d1b020, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  slimeId: 0
+  slimeColor: {r: 0.15966538, g: 0.8679245, b: 0.17887108, a: 0}
+  baseMaterial: {fileID: 2100000, guid: 471c5ab5d697740e880067abf3daad71, type: 2}
+--- !u!114 &2284305601743861922
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7785248851187559969}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: df463e1a515aa4b9b8cd8abac819ef73, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  slimeId: 0
+  isEnemy: 1
+  startSeed: {x: 0, y: 0}
+  minGrow: 5
+  maxGrow: 10
+  perimeterFraction: 0.1
+  use8Neighbors: 1
+  pushBias: 1
