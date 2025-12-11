@@ -35,15 +35,34 @@ public class SlimeAgent : MonoBehaviour
 
         List<Vector2Int> initialPixels = new List<Vector2Int>();
 
-        if (isEnemy)
+if (isEnemy)
         {
-            // Random enemy drop along top row
+            // Slimy band across the top with random holes.
+            float fillProbability = 0.1f;   // 0..1, higher = more slime
+
             for (int x = 0; x < manager.gridWidth; x++)
             {
-                if (Random.value > 0.05f) continue;
-                int y = manager.gridHeight - 1;
-                if (manager.grid[x, y] == 0)
-                    Claim(x, y, initialPixels);
+                // random hole
+                if (Random.value > fillProbability)
+                    continue;
+
+                int ySeed = -1;
+
+                // find highest free cell in this column (top-down)
+                for (int y = manager.gridHeight - 1; y >= 0; y--)
+                {
+                    if (manager.grid[x, y] == 0)    // not a wall
+                    {
+                        ySeed = y;
+                        break;
+                    }
+                }
+
+                // column fully blocked
+                if (ySeed == -1)
+                    continue;
+
+                Claim(x, ySeed, initialPixels);
             }
         }
         else
@@ -57,7 +76,6 @@ public class SlimeAgent : MonoBehaviour
 
         rend.UpdateTexture();
     }
-
     // ---------------------------------------------------------
     // MAIN TICK
     // ---------------------------------------------------------
