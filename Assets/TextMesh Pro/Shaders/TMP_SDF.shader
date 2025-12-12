@@ -82,6 +82,9 @@ Properties {
 
 	_CullMode			("Cull Mode", Float) = 0
 	_ColorMask			("Color Mask", Float) = 15
+	_DissolveTex ("Dissolve Noise", 2D) = "white" {}
+	_DissolveAmount ("Dissolve Amount", Range(0,1)) = 0
+	_DissolveSoftness ("Dissolve Softness", Range(0.001,0.2)) = 0.0
 }
 
 SubShader {

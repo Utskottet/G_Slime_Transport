@@ -264,8 +264,23 @@ public class SlimeAgent : MonoBehaviour
                 byte cell = manager.grid[n.x, n.y];
 
                 // Grow if empty OR if we can push other slime
-                if (cell == 0 || (cell != 1 && cell != id && TryPush(n.x, n.y, cell)))
+                if (cell == 0)
                 {
+                    Claim(n.x, n.y, newWave);
+                    grew = true;
+                    break;
+                }
+                else if (cell != 1 && cell != id && TryPush(n.x, n.y, cell))
+                {
+                    // We're pushing! Notify manager for audio
+                    if (!isEnemy) // Only player pushes trigger sounds
+                    {
+                        if (cell == manager.enemyId)
+                            manager.NotifyPlayerPushedEnemy();
+                        else if (cell >= 2 && cell <= 4)
+                            manager.NotifyPlayerPushedPlayer();
+                    }
+                    
                     Claim(n.x, n.y, newWave);
                     grew = true;
                     break;

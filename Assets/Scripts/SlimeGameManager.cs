@@ -16,6 +16,9 @@ public class SlimeGameManager : MonoBehaviour
     public bool showObstacleMap = false;
     public bool showDebugGrid = true;
 
+    [Header("Visuals")]
+    public bool showBackground = true;
+
     [Header("Spawn Points (Enemy only uses this)")]
     public Transform spawnPointP1;
     public Transform spawnPointP2;
@@ -58,6 +61,29 @@ public class SlimeGameManager : MonoBehaviour
     public enum GamePhase { Playing, PlayerWin, SlimeWin }
     [HideInInspector] public GamePhase phase = GamePhase.Playing;
 
+    // =========================================================
+    // AUDIO FLAGS - read by SlimeAudioManager
+    // =========================================================
+    [Header("Audio Flags (read-only, for debugging)")]
+    [SerializeField] private bool _anyPlayerExpanding;
+    [SerializeField] private bool _anyPlayerRetreating;
+    [SerializeField] private bool _playerPushingEnemy;
+    [SerializeField] private bool _playerPushingPlayer;
+    [SerializeField] private bool _playerHitEnemy;
+    [SerializeField] private bool _playerHitPlayer;
+
+    // Public accessors
+    public bool anyPlayerExpanding => _anyPlayerExpanding;
+    public bool anyPlayerRetreating => _anyPlayerRetreating;
+    public bool playerPushingEnemy => _playerPushingEnemy;
+    public bool playerPushingPlayer => _playerPushingPlayer;
+    public bool playerHitEnemy => _playerHitEnemy;
+    public bool playerHitPlayer => _playerHitPlayer;
+
+    // Tracking for one-shot triggers
+    private bool wasPlayerTouchingEnemy = false;
+    private bool wasPlayerTouchingPlayer = false;
+
     // Internal
     [HideInInspector] public byte[,] grid;
     [HideInInspector] public byte[,] gridThickness;
@@ -67,7 +93,7 @@ public class SlimeGameManager : MonoBehaviour
     public List<SlimeAgent> allAgents = new List<SlimeAgent>();
 
     private float timer;
-    private float gameTime;   // <-- added
+    private float gameTime;
 
 
     void OnValidate()
@@ -104,68 +130,168 @@ public class SlimeGameManager : MonoBehaviour
         }
     }
 
-void Update()
-{
-    if (!Application.isPlaying) return;
-    if (phase != GamePhase.Playing) return;
-
-    // Track how long the game has been running
-    gameTime += Time.deltaTime;
-
-    // --- SIMULATION TICKING ---
-    timer += Time.deltaTime;
-    if (timer >= (1f / simulationSpeed))
+    void Update()
     {
-        timer = 0f;
-        for (int i = allAgents.Count - 1; i >= 0; i--)
+        if (!Application.isPlaying) return;
+        if (phase != GamePhase.Playing) return;
+
+        // Track how long the game has been running
+        gameTime += Time.deltaTime;
+
+        // --- SIMULATION TICKING ---
+        timer += Time.deltaTime;
+        if (timer >= (1f / simulationSpeed))
         {
-            if (allAgents[i] == null)
-                allAgents.RemoveAt(i);
-            else
-                allAgents[i].GameTick();
+            timer = 0f;
+            
+            // Reset per-tick push flags (these get set by SlimeAgent during tick)
+            _playerPushingEnemy = false;
+            _playerPushingPlayer = false;
+            
+            for (int i = allAgents.Count - 1; i >= 0; i--)
+            {
+                if (allAgents[i] == null)
+                    allAgents.RemoveAt(i);
+                else
+                    allAgents[i].GameTick();
+            }
+            
+            // Update audio flags after all agents have ticked
+            UpdateAudioFlags();
+        }
+
+        // --- INPUT ---
+        float p1 = 0f;
+        if (debugAutoGrow || Input.GetKey(KeyCode.Alpha1) || Input.GetKey(KeyCode.Keypad1) || Input.GetKey(KeyCode.A))
+            p1 = 1f;
+
+        float p2 = 0f;
+        if (debugAutoGrow || Input.GetKey(KeyCode.Alpha2) || Input.GetKey(KeyCode.Keypad2) || Input.GetKey(KeyCode.S))
+            p2 = 1f;
+
+        float p3 = 0f;
+        if (debugAutoGrow || Input.GetKey(KeyCode.Alpha3) || Input.GetKey(KeyCode.Keypad3) || Input.GetKey(KeyCode.D))
+            p3 = 1f;
+
+        if (players.Count > 0 && players[0]) players[0].inputIntensity = p1;
+        if (players.Count > 1 && players[1]) players[1].inputIntensity = p2;
+        if (players.Count > 2 && players[2]) players[2].inputIntensity = p3;
+
+        // --- GAME RULES: WIN/LOSE ---
+
+        // Do NOT check win/lose until the game has had time to "start"
+        if (gameTime < winCheckDelay)
+            return;
+
+        float coverage = GetEnemyCoverage();
+
+        // Ignorera mikro-slim (<1%)
+        if (coverage < 0.01f)
+            return;
+
+        // Slime wins
+        if (coverage >= slimeWinPercent)
+        {
+            SlimeWins();
+        }
+        // Players win (else if så båda inte triggar samma frame)
+        else if (coverage <= playerWinPercent)
+        {
+            PlayersWin();
         }
     }
 
-    // --- INPUT ---
-    float p1 = 0f;
-    if (debugAutoGrow || Input.GetKey(KeyCode.Alpha1) || Input.GetKey(KeyCode.Keypad1) || Input.GetKey(KeyCode.A))
-        p1 = 1f;
-
-    float p2 = 0f;
-    if (debugAutoGrow || Input.GetKey(KeyCode.Alpha2) || Input.GetKey(KeyCode.Keypad2) || Input.GetKey(KeyCode.S))
-        p2 = 1f;
-
-    float p3 = 0f;
-    if (debugAutoGrow || Input.GetKey(KeyCode.Alpha3) || Input.GetKey(KeyCode.Keypad3) || Input.GetKey(KeyCode.D))
-        p3 = 1f;
-
-    if (players.Count > 0 && players[0]) players[0].inputIntensity = p1;
-    if (players.Count > 1 && players[1]) players[1].inputIntensity = p2;
-    if (players.Count > 2 && players[2]) players[2].inputIntensity = p3;
-
-    // --- GAME RULES: WIN/LOSE ---
-
-    // Do NOT check win/lose until the game has had time to "start"
-    if (gameTime < winCheckDelay)
-        return;
-
-    float coverage = GetEnemyCoverage();
-
-    // Ignorera mikro-slim (<1%)
-    if (coverage < 0.01f)
-        return;
-
-    // Slime wins
-    if (coverage >= slimeWinPercent)
+    // =========================================================
+    // AUDIO FLAG UPDATES
+    // =========================================================
+    void UpdateAudioFlags()
     {
-        SlimeWins();
+        // --- Expanding / Retreating ---
+        _anyPlayerExpanding = false;
+        _anyPlayerRetreating = false;
+
+        foreach (var player in players)
+        {
+            if (player == null) continue;
+            
+            if (player.inputIntensity > 0 && PlayerHasCells(player))
+                _anyPlayerExpanding = true;
+            
+            if (player.inputIntensity == 0 && PlayerHasCells(player))
+                _anyPlayerRetreating = true;
+        }
+
+        // --- Contact detection ---
+        bool playerTouchingEnemy = false;
+        bool playerTouchingPlayer = false;
+
+        // Scan grid for frontier contacts
+        for (int x = 0; x < gridWidth; x++)
+        {
+            for (int y = 0; y < gridHeight; y++)
+            {
+                byte cell = grid[x, y];
+                
+                // Only check player cells (2, 3, 4)
+                if (cell < 2 || cell > 4) continue;
+
+                // Check neighbors
+                if (x > 0) CheckNeighbor(cell, grid[x - 1, y], ref playerTouchingEnemy, ref playerTouchingPlayer);
+                if (x < gridWidth - 1) CheckNeighbor(cell, grid[x + 1, y], ref playerTouchingEnemy, ref playerTouchingPlayer);
+                if (y > 0) CheckNeighbor(cell, grid[x, y - 1], ref playerTouchingEnemy, ref playerTouchingPlayer);
+                if (y < gridHeight - 1) CheckNeighbor(cell, grid[x, y + 1], ref playerTouchingEnemy, ref playerTouchingPlayer);
+            }
+        }
+
+        // --- One-shot hit detection (first frame of contact) ---
+        _playerHitEnemy = playerTouchingEnemy && !wasPlayerTouchingEnemy;
+        _playerHitPlayer = playerTouchingPlayer && !wasPlayerTouchingPlayer;
+
+        // Store for next frame
+        wasPlayerTouchingEnemy = playerTouchingEnemy;
+        wasPlayerTouchingPlayer = playerTouchingPlayer;
     }
-    // Players win (else if så båda inte triggar samma frame)
-    else if (coverage <= playerWinPercent)
+
+    void CheckNeighbor(byte playerCell, byte neighborCell, ref bool touchingEnemy, ref bool touchingPlayer)
     {
-        PlayersWin();
+        // Neighbor is enemy
+        if (neighborCell == enemyId)
+            touchingEnemy = true;
+        
+        // Neighbor is another player (not same player, not wall, not empty, not enemy)
+        if (neighborCell >= 2 && neighborCell <= 4 && neighborCell != playerCell)
+            touchingPlayer = true;
     }
-}
+
+    bool PlayerHasCells(SlimeAgent player)
+    {
+        if (player == null || grid == null) return false;
+        
+        // Get player id by checking which player index this is
+        int playerId = players.IndexOf(player) + 2; // players[0]=id2, players[1]=id3, players[2]=id4
+        
+        for (int x = 0; x < gridWidth; x++)
+        {
+            for (int y = 0; y < gridHeight; y++)
+            {
+                if (grid[x, y] == playerId)
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    // Called by SlimeAgent when it claims a cell that belonged to enemy
+    public void NotifyPlayerPushedEnemy()
+    {
+        _playerPushingEnemy = true;
+    }
+
+    // Called by SlimeAgent when it claims a cell that belonged to another player
+    public void NotifyPlayerPushedPlayer()
+    {
+        _playerPushingPlayer = true;
+    }
 
     // --- ON SCREEN DEBUG GUI ---
     void OnGUI()
@@ -192,6 +318,12 @@ void Update()
         float coverage = GetEnemyCoverage();
         GUI.backgroundColor = Color.black;
         GUI.Box(new Rect(10, 160, 260, 40), $"Enemy coverage: {(coverage * 100f):0.0}% ({phase})", style);
+
+        // Audio flags debug
+        GUI.backgroundColor = new Color(0.2f, 0.2f, 0.2f);
+        string audioState = $"EXP:{(_anyPlayerExpanding ? "1" : "0")} RET:{(_anyPlayerRetreating ? "1" : "0")} " +
+                           $"PvE:{(_playerPushingEnemy ? "1" : "0")} PvP:{(_playerPushingPlayer ? "1" : "0")}";
+        GUI.Box(new Rect(10, 210, 320, 40), audioState, style);
     }
 
     // --- GAME RULE HELPERS ---
@@ -224,38 +356,38 @@ void Update()
 
     IEnumerator RestartSceneRoutine(float delay)
     {
-    yield return new WaitForSeconds(delay);
-    Scene current = SceneManager.GetActiveScene();
-    SceneManager.LoadScene(current.buildIndex);
+        yield return new WaitForSeconds(delay);
+        Scene current = SceneManager.GetActiveScene();
+        SceneManager.LoadScene(current.buildIndex);
     }
 
     void SlimeWins()
     {
-    if (phase != GamePhase.Playing) return;
+        if (phase != GamePhase.Playing) return;
 
-    phase = GamePhase.SlimeWin;
-    Debug.Log($"SLIME WINS – coverage: {GetEnemyCoverage() * 100f:0.0}%");
+        phase = GamePhase.SlimeWin;
+        Debug.Log($"SLIME WINS – coverage: {GetEnemyCoverage() * 100f:0.0}%");
 
-    // visa lose-FX
-    if (slimeWinFx != null)
-        slimeWinFx.SetActive(true);
+        // visa lose-FX
+        if (slimeWinFx != null)
+            slimeWinFx.SetActive(true);
 
-    StartCoroutine(RestartSceneRoutine(slimeWinDelay));
-}
+        StartCoroutine(RestartSceneRoutine(slimeWinDelay));
+    }
 
-void PlayersWin()
-{
-    if (phase != GamePhase.Playing) return;
+    void PlayersWin()
+    {
+        if (phase != GamePhase.Playing) return;
 
-    phase = GamePhase.PlayerWin;
-    Debug.Log($"PLAYERS WIN – coverage: {GetEnemyCoverage() * 100f:0.0}%");
+        phase = GamePhase.PlayerWin;
+        Debug.Log($"PLAYERS WIN – coverage: {GetEnemyCoverage() * 100f:0.0}%");
 
-    // visa win-FX (coinrain, text osv)
-    if (playerWinFx != null)
-        playerWinFx.SetActive(true);
+        // visa win-FX (coinrain, text osv)
+        if (playerWinFx != null)
+            playerWinFx.SetActive(true);
 
-    StartCoroutine(RestartSceneRoutine(playerWinDelay));
-}
+        StartCoroutine(RestartSceneRoutine(playerWinDelay));
+    }
 
     // --- SPAWNING ---
     void SpawnFromTransform(int id, Transform t, Color c, bool isEnemy = false)
@@ -323,10 +455,13 @@ void PlayersWin()
             bgRenderer = bg.GetComponent<SpriteRenderer>();
         }
 
+        // Select texture: obstacle map OR house
         Texture2D texToShow = showObstacleMap ? obstacleMap : houseImage;
+
         if (texToShow != null)
         {
-            bgRenderer.sprite = Sprite.Create(texToShow,
+            bgRenderer.sprite = Sprite.Create(
+                texToShow,
                 new Rect(0, 0, texToShow.width, texToShow.height),
                 new Vector2(0.5f, 0.5f),
                 100f);
@@ -335,7 +470,16 @@ void PlayersWin()
             float scaleY = targetHeight / (texToShow.height / 100f);
             float targetWidth = (float)texToShow.width / texToShow.height * targetHeight;
             float scaleX = targetWidth / (texToShow.width / 100f);
+
             bg.transform.localScale = new Vector3(scaleX, scaleY, 1);
+        }
+
+        // NEW: only change alpha, never disable object
+        if (bgRenderer != null)
+        {
+            Color c = bgRenderer.color;
+            c.a = showBackground ? 1f : 0f;   // 1 = visible, 0 = invisible
+            bgRenderer.color = c;
         }
     }
 
