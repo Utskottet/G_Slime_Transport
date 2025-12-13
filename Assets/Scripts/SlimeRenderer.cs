@@ -8,7 +8,7 @@ public class SlimeRenderer : MonoBehaviour
     private int myId;
     private Material mat;
 
-    public void Init(SlimeGameManager mgr, Color c, Shader shader, float aspect)
+    public void Init(SlimeGameManager mgr, Color c, Material baseMaterial, float aspect)
     {
         manager = mgr;
         int w = manager.gridWidth;
@@ -34,14 +34,19 @@ public class SlimeRenderer : MonoBehaviour
         };
         m.uv = new Vector2[] { new Vector2(0,0), new Vector2(1,0), new Vector2(0,1), new Vector2(1,1) };
         m.triangles = new int[] { 0, 2, 1, 2, 3, 1 };
+        m.normals = new Vector3[] {
+        -Vector3.forward,
+        -Vector3.forward,
+        -Vector3.forward,
+        -Vector3.forward
+        };
         mf.mesh = m;
 
-        mat = new Material(shader);
+        // Create instance from base material
+        mat = new Material(baseMaterial);
         mat.SetColor("_Color", c);
         mat.SetColor("_ColorDark", c * 0.6f);
-        mat.SetColor("_EdgeColor", c + new Color(0.3f, 0.3f, 0.3f, 0f));
         mat.SetTexture("_MainTex", maskTex);
-        mat.SetFloat("_Cutoff", 0.1f);
         
         // Pass obstacle map to shader
         if (manager.obstacleMap != null)

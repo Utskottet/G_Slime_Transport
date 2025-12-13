@@ -9,7 +9,8 @@ public class SlimeGameManager : MonoBehaviour
     [Header("Assets (REQUIRED)")]
     public Texture2D houseImage;
     public Texture2D obstacleMap;
-    public Shader slimeShader;
+    public Material slimeMaterial;
+
 
     [Header("Debug")]
     public bool debugAutoGrow = false;
@@ -491,7 +492,7 @@ public class SlimeGameManager : MonoBehaviour
         if (bgRenderer && bgRenderer.bounds.size.y > 0)
             aspect = bgRenderer.bounds.size.x / bgRenderer.bounds.size.y;
 
-        rend.Init(this, c, slimeShader, aspect);
+        rend.Init(this, c, slimeMaterial, aspect);
         SlimeAgent agent = go.AddComponent<SlimeAgent>();
         agent.Init(this, rend, id, startSeed, isEnemy);
         allAgents.Add(agent);
