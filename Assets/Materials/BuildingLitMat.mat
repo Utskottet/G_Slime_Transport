@@ -52,7 +52,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _ObstacleTex:
-        m_Texture: {fileID: 2800000, guid: b0982b8bda70743e4905ef25548658d7, type: 3}
+        m_Texture: {fileID: 2800000, guid: 0f03e1e2699dd89459a74a2500cc91d9, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _OcclusionMap:
@@ -82,7 +82,7 @@ Material:
     - _UVSec: 0
     - _ZWrite: 1
     m_Colors:
-    - _BaseColor: {r: 0.13207531, g: 0.13207531, b: 0.13207531, a: 1}
+    - _BaseColor: {r: 0.2901961, g: 0.2901961, b: 0.2901961, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
   m_BuildTextureStacks: []
