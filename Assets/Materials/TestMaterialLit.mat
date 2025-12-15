@@ -66,15 +66,15 @@ Material:
     m_Ints: []
     m_Floats:
     - _BaseAlpha: 0.85
-    - _Bevel: 2
+    - _Bevel: 2.79
     - _BumpScale: 1
     - _BumpStrength: 2
-    - _Cutoff: 0.055
+    - _Cutoff: 0.348
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
     - _EdgeAlpha: 0.6
     - _EmissionStrength: 0.846
-    - _FresnelIntensity: 0.6
+    - _FresnelIntensity: 0.493
     - _FresnelPower: 2.5
     - _GlossMapScale: 1
     - _Glossiness: 1
@@ -86,13 +86,13 @@ Material:
     - _NoiseSpeed: 0.3
     - _OcclusionStrength: 1
     - _Parallax: 0.02
-    - _Smoothness: 0.05
+    - _Smoothness: 0.1059
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
-    - _SpecularIntensity: 1.5
-    - _SpecularPower: 64
-    - _SpotSpecular: 3
-    - _SpotlightBoost: 2
+    - _SpecularIntensity: 1.392
+    - _SpecularPower: 48.9
+    - _SpotSpecular: 4.84
+    - _SpotlightBoost: 4.15
     - _SrcBlend: 1
     - _UVSec: 0
     - _ZWrite: 1
