@@ -212,27 +212,46 @@ public class SlimeAgent : MonoBehaviour
             history.Add(wave);
     }
 
-    void Grow(float strength)
+void Grow(float strength)
+{
+    // If we have no frontier but we exist, rebuild frontier.
+    if (activeFrontier.Count == 0)
     {
-        // If we have no frontier but we exist, rebuild frontier.
+        RebuildFrontier();
         if (activeFrontier.Count == 0)
+            return; // truly dead or stuck
+    }
+
+    int baseGrowthBudget = Mathf.CeilToInt(Mathf.Lerp(minGrowthRate, maxGrowthRate, strength));
+
+    // Enemy gets regrowth boost in recently lost territory
+    int growthBudget = baseGrowthBudget;
+    if (isEnemy && activeFrontier.Count > 0 && manager != null)
+    {
+        // Sample a few frontier cells to check if we're in a hot zone
+        float totalMultiplier = 0f;
+        int samples = Mathf.Min(5, activeFrontier.Count);
+        
+        for (int i = 0; i < samples; i++)
         {
-            RebuildFrontier();
-            if (activeFrontier.Count == 0)
-                return; // truly dead or stuck
+            Vector2Int cell = activeFrontier[Random.Range(0, activeFrontier.Count)];
+            totalMultiplier += manager.GetEnemyRegrowthMultiplier(cell.x, cell.y);
         }
+        
+        float avgMultiplier = totalMultiplier / samples;
+        growthBudget = Mathf.CeilToInt(baseGrowthBudget * avgMultiplier);
+    }
 
-        int growthBudget = Mathf.CeilToInt(Mathf.Lerp(minGrowthRate, maxGrowthRate, strength));
-        List<Vector2Int> newWave = new List<Vector2Int>();
+    List<Vector2Int> newWave = new List<Vector2Int>();
 
-        for (int i = 0; i < growthBudget; i++)
-        {
-            if (activeFrontier.Count == 0)
-                break;
+    for (int i = 0; i < growthBudget; i++)
+    {
+        if (activeFrontier.Count == 0)
+            break;
 
-            int rndIndex;
+        int rndIndex;
 
-            // Enemy: weighted pick so some columns grow faster
+        // Enemy: weighted pick so some columns grow faster
             if (isEnemy && enemyColumnSpeed != null && enemyColumnSpeed.Length == manager.gridWidth)
             {
                 float totalW = 0f;
@@ -310,11 +329,19 @@ public class SlimeAgent : MonoBehaviour
 
     void Claim(int x, int y, List<Vector2Int> wave)
     {
+        byte previousOwner = manager.grid[x, y]; // NEW: Remember who owned it
+        
         manager.grid[x, y] = (byte)id;
         manager.gridThickness[x, y] = 50;
         Vector2Int p = new Vector2Int(x, y);
         wave.Add(p);
         activeFrontier.Add(p);
+
+        // NEW: If a player took an enemy cell, track it!
+        if (!isEnemy && previousOwner == manager.enemyId)
+        {
+            manager.NotifyPlayerTookEnemyCell(x, y);
+        }
 
         // As soon as we have slime, freeze the tray (for players)
         if (tray != null)

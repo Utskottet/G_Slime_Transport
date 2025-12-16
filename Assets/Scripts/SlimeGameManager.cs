@@ -40,6 +40,21 @@ public class SlimeGameManager : MonoBehaviour
     [Tooltip("If enemy slime covers this fraction of non-wall cells, slime wins.")]
     public float slimeWinPercent = 0.95f;  // 95% = lose
 
+    [Header("Territorial Regrowth")]
+    [Tooltip("Enable faster enemy regrowth in recently lost territory")]
+    public bool useRegrowthBoost = true;
+
+    [Tooltip("How long after losing territory does it remain a 'hot zone' (seconds)")]
+    [Range(5f, 60f)]
+    public float hotZoneDuration = 20f;
+
+    [Tooltip("Speed multiplier for enemy in hot zones (1.0 = normal, 3.0 = triple speed)")]
+    [Range(1f, 5f)]
+    public float regrowthBoostMultiplier = 2.5f;
+
+    [Tooltip("Show hot zones in red overlay (debug)")]
+    public bool showHotZones = false;
+
     [Tooltip("If enemy slime is pushed down below this fraction, players win.")]
     public float playerWinPercent = 0.05f; // 5% = win
 
@@ -93,6 +108,8 @@ public class SlimeGameManager : MonoBehaviour
     // Internal
     [HideInInspector] public byte[,] grid;
     [HideInInspector] public byte[,] gridThickness;
+    private float[,] cellLostTime;
+
     private SpriteRenderer bgRenderer;
 
     public List<SlimeAgent> players = new List<SlimeAgent>();
@@ -303,6 +320,15 @@ public class SlimeGameManager : MonoBehaviour
         _playerPushingEnemy = true;
     }
 
+// NEW: Track which cell was taken
+public void NotifyPlayerTookEnemyCell(int x, int y)
+{
+    if (cellLostTime != null && x >= 0 && x < gridWidth && y >= 0 && y < gridHeight)
+    {
+        cellLostTime[x, y] = gameTime; // Mark with current game time
+    }
+}
+
     // Called by SlimeAgent when it claims a cell that belonged to another player
     public void NotifyPlayerPushedPlayer()
     {
@@ -376,6 +402,40 @@ void OnGUI()
         return (float)enemyCells / totalPlayable;
     }
 
+        /// <summary>
+    /// Get regrowth multiplier for enemy at a specific grid position
+    /// Returns 1.0 for normal speed, higher values for faster regrowth in hot zones
+    /// </summary>
+    public float GetEnemyRegrowthMultiplier(int x, int y)
+    {
+        if (!useRegrowthBoost || cellLostTime == null) return 1.0f;
+        if (x < 0 || x >= gridWidth || y < 0 || y >= gridHeight) return 1.0f;
+        
+        float timeSinceLost = gameTime - cellLostTime[x, y];
+        
+        // If never lost or lost too long ago, normal speed
+        if (timeSinceLost < 0 || timeSinceLost > hotZoneDuration)
+            return 1.0f;
+        
+        // Fade the boost over time (strongest right after being taken)
+        float fadeAmount = 1.0f - (timeSinceLost / hotZoneDuration);
+        
+        // Interpolate from normal (1.0) to max boost
+        return Mathf.Lerp(1.0f, regrowthBoostMultiplier, fadeAmount);
+    }
+
+    /// <summary>
+    /// Check if a cell is in a hot zone (for debug/visualization)
+    /// </summary>
+    public bool IsHotZone(int x, int y)
+    {
+        if (cellLostTime == null) return false;
+        if (x < 0 || x >= gridWidth || y < 0 || y >= gridHeight) return false;
+        
+        float timeSinceLost = gameTime - cellLostTime[x, y];
+        return timeSinceLost >= 0 && timeSinceLost <= hotZoneDuration;
+    }
+
     IEnumerator RestartSceneRoutine(float delay)
     {
         yield return new WaitForSeconds(delay);
@@ -444,6 +504,15 @@ void OnGUI()
         if (obstacleMap == null) return;
         grid = new byte[gridWidth, gridHeight];
         gridThickness = new byte[gridWidth, gridHeight];
+
+        cellLostTime = new float[gridWidth, gridHeight];
+        for (int x = 0; x < gridWidth; x++)
+        {
+            for (int y = 0; y < gridHeight; y++)
+            {
+                cellLostTime[x, y] = float.NegativeInfinity; // Never taken
+            }
+        }
 
         if (!obstacleMap.isReadable) return;
 
