@@ -9,7 +9,8 @@ public class SlimeGameManager : MonoBehaviour
     [Header("Assets (REQUIRED)")]
     public Texture2D houseImage;
     public Texture2D obstacleMap;
-    public Material slimeMaterial;
+    public Material slimeMaterial;      // Enemy green slime
+    public Material waterMaterial;      // Player water jets
 
 
     [Header("Debug")]
@@ -138,12 +139,12 @@ public class SlimeGameManager : MonoBehaviour
             players.Clear();
             allAgents.Clear();
 
-            // Players spawn from trays
+            // Players spawn from trays - use water material
             SpawnPlayerFromTray(2, trayP1, Color.blue);      // P1 -> players[0]
             SpawnPlayerFromTray(3, trayP2, Color.magenta);   // P2 -> players[1]
             SpawnPlayerFromTray(4, trayP3, Color.yellow);    // P3 -> players[2]
 
-            // Enemy spawn (pattern handled inside SlimeAgent.Init)
+            // Enemy spawn (pattern handled inside SlimeAgent.Init) - use slime material
             if (spawnPointEnemy != null)
                 SpawnFromTransform(enemyId, spawnPointEnemy, Color.green, true);
             else
@@ -196,19 +197,18 @@ public class SlimeGameManager : MonoBehaviour
 
         // Set enemy intensity from AI controller
         if (enemyController != null)
-{
-        // Find the enemy agent (it's the one that's not in players list)
-        foreach (var agent in allAgents)
         {
-            if (agent != null && !players.Contains(agent))
+            // Find the enemy agent (it's the one that's not in players list)
+            foreach (var agent in allAgents)
             {
-                float intensity = enemyController.GetEnemyIntensity();
-                agent.inputIntensity = intensity;
-                Debug.Log("Setting enemy agent intensity to: " + intensity);
-                break; // Only one enemy
+                if (agent != null && !players.Contains(agent))
+                {
+                    float intensity = enemyController.GetEnemyIntensity();
+                    agent.inputIntensity = intensity;
+                    break; // Only one enemy
+                }
+            }
         }
-    }
-}
 
         // --- GAME RULES: WIN/LOSE ---
 
@@ -320,14 +320,14 @@ public class SlimeGameManager : MonoBehaviour
         _playerPushingEnemy = true;
     }
 
-// NEW: Track which cell was taken
-public void NotifyPlayerTookEnemyCell(int x, int y)
-{
-    if (cellLostTime != null && x >= 0 && x < gridWidth && y >= 0 && y < gridHeight)
+    // NEW: Track which cell was taken
+    public void NotifyPlayerTookEnemyCell(int x, int y)
     {
-        cellLostTime[x, y] = gameTime; // Mark with current game time
+        if (cellLostTime != null && x >= 0 && x < gridWidth && y >= 0 && y < gridHeight)
+        {
+            cellLostTime[x, y] = gameTime; // Mark with current game time
+        }
     }
-}
 
     // Called by SlimeAgent when it claims a cell that belonged to another player
     public void NotifyPlayerPushedPlayer()
@@ -336,43 +336,43 @@ public void NotifyPlayerTookEnemyCell(int x, int y)
     }
 
     // --- ON SCREEN DEBUG GUI ---
-void OnGUI()
-{
-    if (!Application.isPlaying) return;
+    void OnGUI()
+    {
+        if (!Application.isPlaying) return;
 
-    GUIStyle style = new GUIStyle(GUI.skin.box);
-    style.fontSize = 20;
-    style.fontStyle = FontStyle.Bold;
-    style.normal.textColor = Color.white;
+        GUIStyle style = new GUIStyle(GUI.skin.box);
+        style.fontSize = 20;
+        style.fontStyle = FontStyle.Bold;
+        style.normal.textColor = Color.white;
 
-    float v1 = (players.Count > 0 && players[0]) ? players[0].inputIntensity : 0;
-    GUI.backgroundColor = v1 > 0 ? Color.blue : Color.gray;
-    GUI.Box(new Rect(10, 10, 200, 40), "P1 (Key 1/A): " + v1, style);
+        float v1 = (players.Count > 0 && players[0]) ? players[0].inputIntensity : 0;
+        GUI.backgroundColor = v1 > 0 ? Color.blue : Color.gray;
+        GUI.Box(new Rect(10, 10, 200, 40), "P1 (Key 1/A): " + v1, style);
 
-    float v2 = (players.Count > 1 && players[1]) ? players[1].inputIntensity : 0;
-    GUI.backgroundColor = v2 > 0 ? Color.magenta : Color.gray;
-    GUI.Box(new Rect(10, 60, 200, 40), "P2 (Key 2/S): " + v2, style);
+        float v2 = (players.Count > 1 && players[1]) ? players[1].inputIntensity : 0;
+        GUI.backgroundColor = v2 > 0 ? Color.magenta : Color.gray;
+        GUI.Box(new Rect(10, 60, 200, 40), "P2 (Key 2/S): " + v2, style);
 
-    float v3 = (players.Count > 2 && players[2]) ? players[2].inputIntensity : 0;
-    GUI.backgroundColor = v3 > 0 ? Color.yellow : Color.gray;
-    GUI.Box(new Rect(10, 110, 200, 40), "P3 (Key 3/D): " + v3, style);
+        float v3 = (players.Count > 2 && players[2]) ? players[2].inputIntensity : 0;
+        GUI.backgroundColor = v3 > 0 ? Color.yellow : Color.gray;
+        GUI.Box(new Rect(10, 110, 200, 40), "P3 (Key 3/D): " + v3, style);
 
-    float coverage = GetEnemyCoverage();
-    GUI.backgroundColor = Color.black;
-    GUI.Box(new Rect(10, 160, 260, 40), "Enemy coverage: " + (coverage * 100f).ToString("0.0") + "% (" + phase + ")", style);
+        float coverage = GetEnemyCoverage();
+        GUI.backgroundColor = Color.black;
+        GUI.Box(new Rect(10, 160, 260, 40), "Enemy coverage: " + (coverage * 100f).ToString("0.0") + "% (" + phase + ")", style);
 
-    // Game Timer
-    int minutes = Mathf.FloorToInt(gameTime / 60f);
-    int seconds = Mathf.FloorToInt(gameTime % 60f);
-    GUI.backgroundColor = new Color(0.2f, 0.5f, 0.8f);
-    GUI.Box(new Rect(10, 210, 200, 40), "Time: " + string.Format("{0:00}:{1:00}", minutes, seconds), style);
+        // Game Timer
+        int minutes = Mathf.FloorToInt(gameTime / 60f);
+        int seconds = Mathf.FloorToInt(gameTime % 60f);
+        GUI.backgroundColor = new Color(0.2f, 0.5f, 0.8f);
+        GUI.Box(new Rect(10, 210, 200, 40), "Time: " + string.Format("{0:00}:{1:00}", minutes, seconds), style);
 
-    // Audio flags debug
-    GUI.backgroundColor = new Color(0.2f, 0.2f, 0.2f);
-    string audioState = "EXP:" + (_anyPlayerExpanding ? "1" : "0") + " RET:" + (_anyPlayerRetreating ? "1" : "0") + " " +
-                       "PvE:" + (_playerPushingEnemy ? "1" : "0") + " PvP:" + (_playerPushingPlayer ? "1" : "0");
-    GUI.Box(new Rect(10, 260, 320, 40), audioState, style);
-}
+        // Audio flags debug
+        GUI.backgroundColor = new Color(0.2f, 0.2f, 0.2f);
+        string audioState = "EXP:" + (_anyPlayerExpanding ? "1" : "0") + " RET:" + (_anyPlayerRetreating ? "1" : "0") + " " +
+                           "PvE:" + (_playerPushingEnemy ? "1" : "0") + " PvP:" + (_playerPushingPlayer ? "1" : "0");
+        GUI.Box(new Rect(10, 260, 320, 40), audioState, style);
+    }
 
     // --- GAME RULE HELPERS ---
     public float GetEnemyCoverage()
@@ -402,7 +402,7 @@ void OnGUI()
         return (float)enemyCells / totalPlayable;
     }
 
-        /// <summary>
+    /// <summary>
     /// Get regrowth multiplier for enemy at a specific grid position
     /// Returns 1.0 for normal speed, higher values for faster regrowth in hot zones
     /// </summary>
@@ -575,34 +575,45 @@ void OnGUI()
     }
 
     SlimeAgent CreateSlimeAgent(int id, Vector2Int startSeed, Color c, bool isEnemy)
-{
-    GameObject go = new GameObject(isEnemy ? "Enemy" : "Player_ID" + id);
-    SlimeRenderer rend = go.AddComponent<SlimeRenderer>();
-    float aspect = 1.77f;
-    if (bgRenderer && bgRenderer.bounds.size.y > 0)
-        aspect = bgRenderer.bounds.size.x / bgRenderer.bounds.size.y;
-
-    rend.Init(this, c, slimeMaterial, aspect);
-    SlimeAgent agent = go.AddComponent<SlimeAgent>();
-    agent.Init(this, rend, id, startSeed, isEnemy);
-    
-    // Set growth rates based on agent type
-    if (isEnemy)
     {
-        agent.minGrowthRate = 0;   // Enemy minimum speed
-        agent.maxGrowthRate = 40;  // Enemy maximum speed
-    }
-    else
-    {
-        agent.minGrowthRate = 0;   // Players can stop completely
-        agent.maxGrowthRate = 30;  // Players maximum speed
-    }
-    
-    allAgents.Add(agent);
-    if (!isEnemy) players.Add(agent);
+        GameObject go = new GameObject(isEnemy ? "Enemy" : "Player_ID" + id);
+        SlimeRenderer rend = go.AddComponent<SlimeRenderer>();
+        float aspect = 1.77f;
+        if (bgRenderer && bgRenderer.bounds.size.y > 0)
+            aspect = bgRenderer.bounds.size.x / bgRenderer.bounds.size.y;
 
-    return agent;
-}
+        // Use appropriate material: slime for enemy, water for players
+        Material materialToUse = isEnemy ? slimeMaterial : waterMaterial;
+        
+        // Fallback to slimeMaterial if waterMaterial not assigned
+        if (materialToUse == null)
+        {
+            materialToUse = slimeMaterial;
+            if (!isEnemy)
+                Debug.LogWarning("WaterMaterial not assigned! Falling back to SlimeMaterial for players.");
+        }
+
+        rend.Init(this, c, materialToUse, aspect);
+        SlimeAgent agent = go.AddComponent<SlimeAgent>();
+        agent.Init(this, rend, id, startSeed, isEnemy);
+        
+        // Set growth rates based on agent type
+        if (isEnemy)
+        {
+            agent.minGrowthRate = 0;   // Enemy minimum speed
+            agent.maxGrowthRate = 40;  // Enemy maximum speed
+        }
+        else
+        {
+            agent.minGrowthRate = 0;   // Players can stop completely
+            agent.maxGrowthRate = 30;  // Players maximum speed
+        }
+        
+        allAgents.Add(agent);
+        if (!isEnemy) players.Add(agent);
+
+        return agent;
+    }
 
     public Vector2Int WorldToGrid(Vector3 worldPos)
     {
