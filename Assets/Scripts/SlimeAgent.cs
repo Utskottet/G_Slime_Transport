@@ -3,10 +3,17 @@ using System.Collections.Generic;
 
 public class SlimeAgent : MonoBehaviour
 {
-    public float inputIntensity = 0f;
+    public float inputIntensity = 0f;  // REMOVED the ' typo
+    
+    [Header("Growth Speed Settings")]
+    [Tooltip("Minimum pixels per tick (at intensity 0.0)")]
+    public int minGrowthRate = 0;
+
+    [Tooltip("Maximum pixels per tick (at intensity 1.0)")]
+    public int maxGrowthRate = 40;
 
     // Link back to the tray for this player (set from GameManager)
-    [HideInInspector] public SlimeTray tray;
+    [HideInInspector] public SlimeTray tray;  // ONLY ONE LINE, removed duplicate
 
     private SlimeGameManager manager;
     private SlimeRenderer rend;
@@ -22,6 +29,7 @@ public class SlimeAgent : MonoBehaviour
 
     // Enemy only: per-column growth speed
     private float[] enemyColumnSpeed;
+    
 
     // ---------------------------------------------------------
     // INIT
@@ -109,7 +117,7 @@ public class SlimeAgent : MonoBehaviour
     {
         if (isEnemy)
         {
-            Grow(0.3f);
+            Grow(inputIntensity);  
         }
         else
         {
@@ -214,7 +222,7 @@ public class SlimeAgent : MonoBehaviour
                 return; // truly dead or stuck
         }
 
-        int growthBudget = Mathf.CeilToInt(20 * strength);
+        int growthBudget = Mathf.CeilToInt(Mathf.Lerp(minGrowthRate, maxGrowthRate, strength));
         List<Vector2Int> newWave = new List<Vector2Int>();
 
         for (int i = 0; i < growthBudget; i++)
