@@ -71,10 +71,20 @@ public class SlimeGameManager : MonoBehaviour
     [Tooltip("Seconds to show LOSE FX before restart.")]
     public float slimeWinDelay = 4f;
 
-    [Header("Win/Lose FX (optional)")]
+    [Header("Win/Lose FX")]
     public GameObject playerWinFx;   // coinrain, WIN-text
     public GameObject slimeWinFx;    // SLIME WINS-text
 
+    [Header("Game Start/Progress FX")]
+    public GameObject gameStartFx;
+    public float gameStartDuration = 5f;
+
+    public GameObject midGameFx;
+    public float midGameTriggerTime = 15f;
+    public float midGameDuration = 4f;
+
+    private bool gameStartFxTriggered = false;
+    private bool midGameFxTriggered = false;
 
     [Header("Controllers")]
     public PlayerInputController playerController;
@@ -151,6 +161,14 @@ public class SlimeGameManager : MonoBehaviour
                 CreateSlimeAgent(enemyId, Vector2Int.zero, Color.green, true);
 
             phase = GamePhase.Playing;
+
+            // Trigger game start FX
+            if (gameStartFx != null)
+            {
+                gameStartFx.SetActive(true);
+                gameStartFxTriggered = true;
+                StartCoroutine(HideFxAfterDelay(gameStartFx, gameStartDuration));
+            }
         }
     }
 
@@ -161,6 +179,17 @@ public class SlimeGameManager : MonoBehaviour
 
         // Track how long the game has been running
         gameTime += Time.deltaTime;
+
+        // Trigger mid-game FX
+        if (!midGameFxTriggered && gameTime >= midGameTriggerTime)
+        {
+            midGameFxTriggered = true;
+            if (midGameFx != null)
+            {
+                midGameFx.SetActive(true);
+                StartCoroutine(HideFxAfterDelay(midGameFx, midGameDuration));
+            }
+        }
 
         // --- SIMULATION TICKING ---
         timer += Time.deltaTime;
@@ -441,6 +470,13 @@ public class SlimeGameManager : MonoBehaviour
         yield return new WaitForSeconds(delay);
         Scene current = SceneManager.GetActiveScene();
         SceneManager.LoadScene(current.buildIndex);
+    }
+
+    IEnumerator HideFxAfterDelay(GameObject fx, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        if (fx != null)
+            fx.SetActive(false);
     }
 
     void SlimeWins()
