@@ -1,4 +1,4 @@
-Shader "Custom/SlimeShaderTESTV3"
+Shader "Custom/AxelSlime01"
 {
     Properties
     {
@@ -7,15 +7,25 @@ Shader "Custom/SlimeShaderTESTV3"
         _Color ("Slime Color", Color) = (0,1,0,1)
         _ColorDark ("Dark Color", Color) = (0,0.5,0,1)
         _EdgeColor ("Edge Glow Color", Color) = (0.5,1,0.5,1)
+        
+        [Header(Shape)]
         _Cutoff ("Cutoff", Range(0,1)) = 0.1
         _Smoothness ("Edge Smoothness", Range(0.01, 0.2)) = 0.05
         _Bevel ("Bevel Strength", Range(0, 5)) = 2.0
+        
+        [Header(Lighting)]
         _FresnelPower ("Fresnel Power", Range(1, 5)) = 2.0
         _FresnelIntensity ("Fresnel Intensity", Range(0, 1)) = 0.5
         _SpecularPower ("Specular Power", Range(1, 64)) = 16
         _SpecularIntensity ("Specular Intensity", Range(0, 2)) = 0.8
         _SpotlightBoost ("Spotlight Boost", Range(0, 5)) = 2.0
         _SpotSpecular ("Spot Specular", Range(0, 5)) = 3.0
+
+        [Header(Alive Animation)]
+        // UPDATED: Increased max range from 20 to 200
+        _NoiseScale ("Ripple Scale", Range(1, 200)) = 50.0 
+        _NoiseSpeed ("Ripple Speed", Range(0, 5)) = 2.0
+        _NoiseStrength ("Ripple Height", Range(0, 0.2)) = 0.05
     }
     SubShader
     {
@@ -56,8 +66,13 @@ Shader "Custom/SlimeShaderTESTV3"
             float _SpecularIntensity;
             float _SpotlightBoost;
             float _SpotSpecular;
+            
+            // Animation Variables
+            float _NoiseScale;
+            float _NoiseSpeed;
+            float _NoiseStrength;
 
-            // Spotlight data from SpotlightController (global)
+            // Spotlight data
             float4 _Spot1Pos, _Spot2Pos, _Spot3Pos;
             float4 _Spot1Dir, _Spot2Dir, _Spot3Dir;
             float _Spot1Angle, _Spot2Angle, _Spot3Angle;
@@ -77,30 +92,49 @@ Shader "Custom/SlimeShaderTESTV3"
                 return (obs.r > 0.5 && obs.g < 0.4 && obs.b < 0.4) ? 1.0 : 0.0;
             }
 
-            float SampleSmooth(float2 uv, float radius) {
+            float Random(float2 uv) {
+                return frac(sin(dot(uv, float2(12.9898, 78.233))) * 43758.5453123);
+            }
+
+            float Noise(float2 uv) {
+                float2 i = floor(uv);
+                float2 f = frac(uv);
+                f = f * f * (3.0 - 2.0 * f);
+
+                float a = Random(i);
+                float b = Random(i + float2(1.0, 0.0));
+                float c = Random(i + float2(0.0, 1.0));
+                float d = Random(i + float2(1.0, 1.0));
+
+                return lerp(lerp(a, b, f.x), lerp(c, d, f.x), f.y);
+            }
+
+            float SampleHeight(float2 uv) {
                 if (IsObstacle(uv) > 0.5) return 0;
                 
-                float sum = 0;
-                float total = 0;
+                float h = tex2D(_MainTex, uv).r;
                 
-                for (int x = -2; x <= 2; x++) {
-                    for (int y = -2; y <= 2; y++) {
-                        float2 offset = float2(x, y) * _MainTex_TexelSize.xy * radius;
-                        float2 sampleUV = uv + offset;
-                        
-                        if (IsObstacle(sampleUV) > 0.5) continue;
-                        
-                        float weight = 1.0 / (1.0 + length(float2(x, y)));
-                        sum += tex2D(_MainTex, sampleUV).r * weight;
-                        total += weight;
-                    }
+                if (h > 0.05) {
+                    // Apply Ripple
+                    float ripple = Noise(uv * _NoiseScale + _Time.y * _NoiseSpeed);
+                    h += (ripple - 0.5) * _NoiseStrength * smoothstep(0, 1, h); 
                 }
                 
-                if (total < 0.01) return tex2D(_MainTex, uv).r;
+                return h;
+            }
+
+            float SampleSmooth(float2 uv, float radius) {
+                float sum = 0;
+                float total = 0;
+                sum += SampleHeight(uv) * 4.0; total += 4.0;
+                float d = _MainTex_TexelSize.x * radius;
+                sum += SampleHeight(uv + float2(d, 0)); total += 1.0;
+                sum += SampleHeight(uv - float2(d, 0)); total += 1.0;
+                sum += SampleHeight(uv + float2(0, d)); total += 1.0;
+                sum += SampleHeight(uv - float2(0, d)); total += 1.0;
                 return sum / total;
             }
 
-            // Calculate one spotlight contribution
             float3 CalcSpotlight(float3 worldPos, float3 normal, float3 viewDir,
                                  float3 spotPos, float3 spotDir, float spotAngle, 
                                  float spotIntensity, float3 spotColor)
@@ -108,41 +142,27 @@ Shader "Custom/SlimeShaderTESTV3"
                 float3 toLight = spotPos - worldPos;
                 float dist = length(toLight);
                 float3 lightDir = toLight / dist;
-                
-                // Cone check - are we inside spotlight cone?
                 float cosAngle = dot(-lightDir, spotDir);
-                float coneAngle = cos(spotAngle * 0.5 * 0.0174533); // degrees to radians
+                float coneAngle = cos(spotAngle * 0.5 * 0.0174533);
                 float inCone = smoothstep(coneAngle - 0.1, coneAngle + 0.1, cosAngle);
-                
                 if (inCone < 0.01) return float3(0,0,0);
-                
-                // Distance falloff
                 float atten = saturate(1.0 - dist * 0.02) * inCone;
-                
-                // Diffuse
                 float NdotL = saturate(dot(normal, lightDir));
                 float3 diffuse = spotColor * NdotL * atten * spotIntensity * _SpotlightBoost * 0.1;
-                
-                // Specular - white shiny highlight
                 float3 halfDir = normalize(lightDir + viewDir);
                 float NdotH = saturate(dot(normal, halfDir));
                 float spec = pow(NdotH, _SpecularPower * 2) * _SpotSpecular * atten * spotIntensity * 0.01;
-                float3 specular = spotColor * spec;
-                
-                return diffuse + specular;
+                return diffuse + spotColor * spec;
             }
 
             fixed4 frag (v2f i) : SV_Target {
                 float2 uv = i.uv;
-                
                 if (IsObstacle(uv) > 0.5) discard;
                 
                 float val = SampleSmooth(uv, 1.5);
                 float alpha = smoothstep(_Cutoff, _Cutoff + _Smoothness, val);
-                
                 if (alpha < 0.01) discard;
 
-                // Calculate fake normal from height (the bevel look)
                 float delta = 0.006;
                 float right = SampleSmooth(uv + float2(delta, 0), 1.0);
                 float up = SampleSmooth(uv + float2(0, delta), 1.0);
@@ -154,46 +174,29 @@ Shader "Custom/SlimeShaderTESTV3"
                 normal.y = (down - up) * _Bevel;
                 normal.z = 1.0;
                 normal = normalize(normal);
-                
-                // Ambient/fake light from top-left (base look)
-                float3 fakeLightDir = normalize(float3(-0.5, 0.5, 1.0));
-                float fakeNdotL = saturate(dot(normal, fakeLightDir));
-                
-                // View direction
+
+                float3 lightDir = normalize(float3(-0.5, 0.5, 1.0));
+                float NdotL = saturate(dot(normal, lightDir));
                 float3 viewDir = float3(0, 0, 1);
+                float fresnel = pow(1.0 - saturate(dot(normal, viewDir)), _FresnelPower) * _FresnelIntensity;
+                float3 halfDir = normalize(lightDir + viewDir);
+                float spec = pow(saturate(dot(normal, halfDir)), _SpecularPower) * _SpecularIntensity;
                 
-                // Fresnel rim
-                float fresnel = pow(1.0 - saturate(dot(normal, viewDir)), _FresnelPower);
-                fresnel *= _FresnelIntensity;
-                
-                // Fake specular
-                float3 fakeHalfDir = normalize(fakeLightDir + viewDir);
-                float fakeSpec = pow(saturate(dot(normal, fakeHalfDir)), _SpecularPower) * _SpecularIntensity;
-                
-                // Base color
                 float thickness = saturate(val * 1.5);
                 fixed4 baseColor = lerp(_Color, _ColorDark, thickness * 0.5);
-                
-                // Edge glow
                 float edge = smoothstep(_Cutoff + _Smoothness, _Cutoff, val);
-                
-                // Combine base lighting (the good V2 look)
+
                 fixed4 col = baseColor;
-                col.rgb *= (0.6 + fakeNdotL * 0.5);
-                col.rgb += fakeSpec;
+                col.rgb *= (0.6 + NdotL * 0.5);
+                col.rgb += spec;
                 col.rgb = lerp(col.rgb, _EdgeColor.rgb, fresnel);
                 col.rgb += _EdgeColor.rgb * edge * 0.3;
                 
-                // === ADD FAKE SPOTLIGHTS ===
-                col.rgb += CalcSpotlight(i.worldPos, normal, viewDir, 
-                    _Spot1Pos.xyz, _Spot1Dir.xyz, _Spot1Angle, _Spot1Intensity, _Spot1Color.rgb);
-                col.rgb += CalcSpotlight(i.worldPos, normal, viewDir, 
-                    _Spot2Pos.xyz, _Spot2Dir.xyz, _Spot2Angle, _Spot2Intensity, _Spot2Color.rgb);
-                col.rgb += CalcSpotlight(i.worldPos, normal, viewDir, 
-                    _Spot3Pos.xyz, _Spot3Dir.xyz, _Spot3Angle, _Spot3Intensity, _Spot3Color.rgb);
+                col.rgb += CalcSpotlight(i.worldPos, normal, viewDir, _Spot1Pos.xyz, _Spot1Dir.xyz, _Spot1Angle, _Spot1Intensity, _Spot1Color.rgb);
+                col.rgb += CalcSpotlight(i.worldPos, normal, viewDir, _Spot2Pos.xyz, _Spot2Dir.xyz, _Spot2Angle, _Spot2Intensity, _Spot2Color.rgb);
+                col.rgb += CalcSpotlight(i.worldPos, normal, viewDir, _Spot3Pos.xyz, _Spot3Dir.xyz, _Spot3Angle, _Spot3Intensity, _Spot3Color.rgb);
                 
                 col.a = alpha * 0.92;
-                
                 return col;
             }
             ENDCG

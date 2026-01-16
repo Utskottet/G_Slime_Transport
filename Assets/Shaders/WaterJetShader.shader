@@ -27,6 +27,8 @@ Shader "Custom/WaterJetShader"
         _FoamIntensity ("Foam Intensity", Range(0, 3)) = 0.8
         _WallFoamIntensity ("Wall Foam Intensity", Range(0, 5)) = 2.0
         _TopFoamIntensity ("Top/Frontier Foam", Range(0, 3)) = 1.5
+        _FoamThreshold ("Foam Threshold", Range(0, 1)) = 0.45
+        _FoamOpacity ("Foam Opacity", Range(0, 1)) = 0.85
         
         [Header(Transparency)]
         _CoreAlpha ("Core Alpha", Range(0.3, 1)) = 0.8
@@ -87,6 +89,7 @@ Shader "Custom/WaterJetShader"
             float _WallFoamIntensity;
             float _TopFoamIntensity;
             float _FoamThreshold;
+            float _FoamOpacity;
             
             float _CoreAlpha;
             float _EdgeAlpha;
@@ -283,7 +286,6 @@ Shader "Custom/WaterJetShader"
                 jetStreaks = smoothstep(0.4, 0.6, jetStreaks) * 0.15;
                 
                 // === FOAM DETECTION ===
-                float edge = DetectEdge(uv, val);
                 float nearWall = NearObstacle(uv);
                 float frontier = DetectFrontier(uv, val);
                 
@@ -294,8 +296,11 @@ Shader "Custom/WaterJetShader"
                 foamNoise = foamNoise * 0.7 + foamVariation * 0.3;
                 
                 // === CALCULATE FOAM AMOUNTS ===
-                // Edge foam (sides of water stream)
-                float edgeFoam = edge * _FoamIntensity;
+                // Edge foam band: stable foam near the water boundary
+                float safeFoamWidth = max(_FoamEdgeWidth, 1e-4);
+                float edgeBand = saturate(1.0 - (val - _Cutoff) / safeFoamWidth);
+                edgeBand *= alpha; // only inside water
+                float edgeFoam = edgeBand * _FoamIntensity;
                 
                 // Wall/obstacle foam (around windows) - should be WHITE and strong
                 float wallFoam = nearWall * _WallFoamIntensity;
@@ -306,21 +311,21 @@ Shader "Custom/WaterJetShader"
                 // Combine all foam sources
                 float foamAmount = saturate(edgeFoam + wallFoam + topFoam);
                 
-                // Apply noise to foam (but keep minimum foam where detected)
-                float foamWithNoise = foamAmount * (0.5 + foamNoise * 0.5);
+                // Apply noise to foam (keep a minimum so foam doesn't flicker away)
+                float foamWithNoise = foamAmount * lerp(0.65, 1.0, foamNoise);
                 
-                // Threshold for crisp foam edges
-                float finalFoam = smoothstep(_FoamThreshold * 0.5, _FoamThreshold, foamWithNoise);
+                // Threshold for crisp foam edges (FoamThreshold ~0.3–0.6 is typical)
+                float finalFoam = smoothstep(_FoamThreshold, 1.0, foamWithNoise);
                 
-                // Extra boost for wall foam - always visible
-                finalFoam = max(finalFoam, wallFoam * 0.5);
-                finalFoam = saturate(finalFoam * 0.8); // Overall foam reduction
+                // Keep some foam around obstacles even if noise is low
+                finalFoam = max(finalFoam, wallFoam * 0.35);
+                finalFoam = saturate(finalFoam);
                 
                 // === BASE COLOR ===
                 float thickness = saturate(val * 2.0);
                 // Core detection - how surrounded by water are we?
                 float coreAmount = thickness * thickness; // Simple: thicker = more core
-                float edginess = saturate(edge + nearWall * 0.5 + frontier * 0.5);
+                float edginess = saturate(edgeBand + nearWall * 0.5 + frontier * 0.5);
                 fixed4 waterCol = lerp(_WaterColor, _WaterColorDeep, coreAmount);
                 // Lighten edges slightly but keep blue
                 waterCol.rgb = lerp(waterCol.rgb, waterCol.rgb * 1.3, edginess * 0.3);
@@ -366,13 +371,12 @@ Shader "Custom/WaterJetShader"
                 col.rgb += fresnel * _WaterColor.rgb * 0.5 * (1.0 - finalFoam);
                 
                 // === APPLY FOAM ===
-                // Foam is white and opaque
-                col.rgb = lerp(col.rgb, float3(1,1,1), finalFoam * 0.95);
+                col.rgb = lerp(col.rgb, _FoamColor.rgb, finalFoam);
                 
                 // === ALPHA ===
                 float baseAlpha = lerp(_EdgeAlpha, _CoreAlpha, thickness);
-                // Foam is more opaque
-                baseAlpha = lerp(baseAlpha, 1.0, finalFoam * 0.9);
+                float foamAlpha = lerp(baseAlpha, 1.0, _FoamOpacity);
+                baseAlpha = lerp(baseAlpha, foamAlpha, finalFoam);
                 
                 col.a = baseAlpha * alpha;
                 

@@ -7,8 +7,8 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: TestMaterialLit
-  m_Shader: {fileID: 4800000, guid: e1c19e19cd18b4941af6c3685ee94cd3, type: 3}
+  m_Name: AxelSlimeMaterial
+  m_Shader: {fileID: 4800000, guid: 29f89f4a5ecd6604ebdb80eb6e555fad, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -84,6 +84,7 @@ Material:
     - _NoiseScale: 30.5
     - _NoiseScaleSmall: 80
     - _NoiseSpeed: 0.3
+    - _NoiseStrength: 0.05
     - _OcclusionStrength: 1
     - _Parallax: 0.02
     - _Smoothness: 0.1059

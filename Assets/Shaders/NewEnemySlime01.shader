@@ -1,4 +1,4 @@
-Shader "Custom/SlimeShaderTESTV3"
+Shader "Custom/NewEnemySlime01"
 {
     Properties
     {
