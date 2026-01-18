@@ -1,3 +1,4 @@
+// changing player jet
 using UnityEngine;
 using System.Collections.Generic;
 
@@ -26,6 +27,9 @@ public class SlimeAgent : MonoBehaviour
     private List<List<Vector2Int>> history = new List<List<Vector2Int>>();
 
     private int pushBias = 1;
+    // Directional growth bias (players only)
+    private float verticalBias = 4.0f;      // Higher = more vertical
+    
 
     // Track failed push attempts per cell
     private Dictionary<Vector2Int, int> pushFailCounts = new Dictionary<Vector2Int, int>();
@@ -287,33 +291,66 @@ void Grow(float strength)
             Vector2Int growSource = activeFrontier[rndIndex];
             bool grew = false;
 
-            foreach (var n in GetNeighbors(growSource))
+            if (isEnemy)
             {
-                if (!InBounds(n)) continue;
-
-                byte cell = manager.grid[n.x, n.y];
-
-                // Grow if empty OR if we can push other slime
-                if (cell == 0)
+                // Enemy: original neighbors (perfect drip - don't touch)
+                foreach (var n in GetNeighbors(growSource))
                 {
-                    Claim(n.x, n.y, newWave);
-                    grew = true;
-                    break;
+                    if (!InBounds(n)) continue;
+
+                    byte cell = manager.grid[n.x, n.y];
+
+                    if (cell == 0)
+                    {
+                        Claim(n.x, n.y, newWave);
+                        grew = true;
+                        break;
+                    }
+                    else if (cell != 1 && cell != id && TryPush(n.x, n.y, cell))
+                    {
+                        Claim(n.x, n.y, newWave);
+                        grew = true;
+                        break;
+                    }
                 }
-                else if (cell != 1 && cell != id && TryPush(n.x, n.y, cell))
+            }
+            else
+            {
+                // Player: vertical bias (water jet)
+                List<Vector2Int> neighbors = GetWeightedNeighborsForPlayer(growSource);
+                
+                // Shuffle weighted list
+                for (int j = neighbors.Count - 1; j > 0; j--)
                 {
-                    // We're pushing! Notify manager for audio
-                    if (!isEnemy) // Only player pushes trigger sounds
+                    int swapIdx = Random.Range(0, j + 1);
+                    Vector2Int temp = neighbors[j];
+                    neighbors[j] = neighbors[swapIdx];
+                    neighbors[swapIdx] = temp;
+                }
+                
+                foreach (var n in neighbors)
+                {
+                    if (!InBounds(n)) continue;
+
+                    byte cell = manager.grid[n.x, n.y];
+
+                    if (cell == 0)
+                    {
+                        Claim(n.x, n.y, newWave);
+                        grew = true;
+                        break;
+                    }
+                    else if (cell != 1 && cell != id && TryPush(n.x, n.y, cell))
                     {
                         if (cell == manager.enemyId)
                             manager.NotifyPlayerPushedEnemy();
                         else if (cell >= 2 && cell <= 4)
                             manager.NotifyPlayerPushedPlayer();
+
+                        Claim(n.x, n.y, newWave);
+                        grew = true;
+                        break;
                     }
-                    
-                    Claim(n.x, n.y, newWave);
-                    grew = true;
-                    break;
                 }
             }
 
@@ -501,6 +538,33 @@ void Grow(float strength)
         }
         return false;
     }
+    List<Vector2Int> GetWeightedNeighborsForPlayer(Vector2Int p)
+    {
+        List<Vector2Int> neighbors = new List<Vector2Int>();
+        
+        float heightFactor = (float)p.y / manager.gridHeight;
+        float currentBias = Mathf.Lerp(verticalBias, 1.0f, heightFactor * 0.3f);
+        
+        // Always try UP first
+        neighbors.Add(new Vector2Int(p.x, p.y + 1));
+        
+        // Horizontal only sometimes (higher bias = less horizontal)
+        if (Random.value < (1.0f / currentBias))
+        {
+            neighbors.Add(new Vector2Int(p.x + 1, p.y));
+            neighbors.Add(new Vector2Int(p.x - 1, p.y));
+        }
+        
+        // Down rarely
+        if (Random.value < 0.2f)
+        {
+            neighbors.Add(new Vector2Int(p.x, p.y - 1));
+        }
+        
+        return neighbors;
+    }
+
+
 
     IEnumerable<Vector2Int> GetNeighbors(Vector2Int p)
     {
