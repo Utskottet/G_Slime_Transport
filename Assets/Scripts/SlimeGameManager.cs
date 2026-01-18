@@ -41,6 +41,32 @@ public class SlimeGameManager : MonoBehaviour
     [Tooltip("If enemy slime covers this fraction of non-wall cells, slime wins.")]
     public float slimeWinPercent = 0.95f;  // 95% = lose
 
+    [Header("Push Difficulty")]
+    [Tooltip("Base chance for player to successfully claim an enemy cell (0-1)")]
+    [Range(0f, 1f)]
+    public float playerVsEnemyPushChance = 0.5f;
+
+    [Tooltip("Base chance for player to successfully claim another player's cell (0-1)")]
+    [Range(0f, 1f)]
+    public float playerVsPlayerPushChance = 0.3f;
+
+    [Tooltip("Base chance for enemy to successfully claim a player cell (0-1)")]
+    [Range(0f, 1f)]
+    public float enemyVsPlayerPushChance = 0.5f;
+
+    [Tooltip("Extra push chance added at full pedal intensity (added to base chance)")]
+    [Range(0f, 0.5f)]
+    public float intensityPushBonus = 0.3f;
+
+    [Tooltip("Guarantee push success after this many failed attempts (0 = disabled)")]
+    [Range(0, 10)]
+    public int guaranteedPushAfterFails = 3;
+
+    [Tooltip("Keep frontier cells active even when touching enemy (prevents getting stuck)")]
+    public bool keepFrontierAtEnemyBorder = true;
+
+
+
     [Header("Territorial Regrowth")]
     [Tooltip("Enable faster enemy regrowth in recently lost territory")]
     public bool useRegrowthBoost = true;

@@ -27,6 +27,9 @@ public class SlimeAgent : MonoBehaviour
 
     private int pushBias = 1;
 
+    // Track failed push attempts per cell
+    private Dictionary<Vector2Int, int> pushFailCounts = new Dictionary<Vector2Int, int>();
+
     // Enemy only: per-column growth speed
     private float[] enemyColumnSpeed;
     
@@ -348,10 +351,57 @@ void Grow(float strength)
             tray.SetFrozen(true);
     }
 
-    bool TryPush(int x, int y, int enemyId)
+    bool TryPush(int x, int y, int otherId)
+{
+    Vector2Int cell = new Vector2Int(x, y);
+    
+    // Calculate push chance based on who is pushing whom
+    float pushChance;
+    
+    if (isEnemy)
     {
-        return Random.value < (0.5f + (pushBias * 0.1f));
+        // Enemy pushing player
+        pushChance = manager.enemyVsPlayerPushChance;
     }
+    else if (otherId == manager.enemyId)
+    {
+        // Player pushing enemy
+        pushChance = manager.playerVsEnemyPushChance + (inputIntensity * manager.intensityPushBonus);
+    }
+    else
+    {
+        // Player pushing player
+        pushChance = manager.playerVsPlayerPushChance + (inputIntensity * manager.intensityPushBonus);
+    }
+    
+    // Check for guaranteed push after fails
+    if (manager.guaranteedPushAfterFails > 0)
+    {
+        if (!pushFailCounts.ContainsKey(cell))
+            pushFailCounts[cell] = 0;
+        
+        if (pushFailCounts[cell] >= manager.guaranteedPushAfterFails)
+        {
+            pushFailCounts[cell] = 0;  // Reset counter
+            return true;  // Guaranteed success
+        }
+    }
+    
+    // Roll the dice
+    bool success = Random.value < pushChance;
+    
+    // Track failures
+    if (!success && manager.guaranteedPushAfterFails > 0)
+    {
+        pushFailCounts[cell]++;
+    }
+    else if (success)
+    {
+        pushFailCounts[cell] = 0;  // Reset on success
+    }
+    
+    return success;
+}
 
     // ---------------------------------------------------------
     // SHRINK
@@ -409,16 +459,29 @@ void Grow(float strength)
 
     bool IsFullyBlocked(Vector2Int p)
     {
-        foreach (var n in GetNeighbors(p))
-        {
-            if (!InBounds(n)) continue;
+    foreach (var n in GetNeighbors(p))
+    {
+        if (!InBounds(n)) continue;
 
-            byte cell = manager.grid[n.x, n.y];
-            if (cell == 0 || (cell != 1 && cell != id))
-                return false; // there is somewhere we could grow/push
+        byte cell = manager.grid[n.x, n.y];
+        
+        // Can grow into empty space
+        if (cell == 0)
+            return false;
+        
+        // Can push other slime (not walls, not self)
+        if (cell != 1 && cell != id)
+        {
+            // If keepFrontierAtEnemyBorder is on, never consider "blocked" when touching enemy
+            if (manager.keepFrontierAtEnemyBorder)
+                return false;
+            
+            // Otherwise use old logic
+            return false;
         }
-        return true;
     }
+    return true;
+}
 
     bool InBounds(Vector2Int p)
     {
