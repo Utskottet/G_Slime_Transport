@@ -2,6 +2,29 @@ Shader "Custom/WaterJetShader"
 {
     Properties
     {
+        [Header(MASTER INTENSITIES)]
+        _LightingIntensity ("Lighting Intensity", Range(0, 1)) = 0.4
+        _SpecularIntensity ("Specular Intensity", Range(0, 1)) = 0.8
+        _FresnelIntensity ("Fresnel Rim Intensity", Range(0, 1)) = 0.4
+        _CausticsIntensity ("Caustics Intensity", Range(0, 1)) = 0.3
+        _FlowIntensity ("Flow/Streak Intensity", Range(0, 1)) = 0.3
+        _FoamIntensity ("Edge Foam Intensity", Range(0, 3)) = 0.8
+        _WallFoamIntensity ("Wall Foam Intensity", Range(0, 5)) = 2.0
+        _TopFoamIntensity ("Top/Frontier Foam Intensity", Range(0, 3)) = 1.5
+        _DetailIntensity ("Detail Variation Intensity", Range(0, 1)) = 0.3
+        _DepthColorBlend ("Depth Color Blend", Range(0, 1)) = 1.0
+        
+        [Header(NOISE THRESHOLD higher equals more black)]
+        _FlowThreshold ("Flow Threshold", Range(0, 1)) = 0.0
+        _FlowContrast ("Flow Contrast", Range(1, 5)) = 1.0
+        _CausticsThreshold ("Caustics Threshold", Range(0, 1)) = 0.0
+        _CausticsContrast ("Caustics Contrast", Range(1, 5)) = 1.0
+        _FoamNoiseThreshold ("Foam Noise Threshold", Range(0, 1)) = 0.0
+        _FoamNoiseContrast ("Foam Noise Contrast", Range(1, 5)) = 1.0
+        _DetailThreshold ("Detail Threshold", Range(0, 1)) = 0.0
+        _DetailContrast ("Detail Contrast", Range(1, 5)) = 1.0
+        
+        [Header(Textures)]
         _MainTex ("Mask Texture", 2D) = "white" {}
         _ObstacleTex ("Obstacle Map", 2D) = "black" {}
         
@@ -10,33 +33,56 @@ Shader "Custom/WaterJetShader"
         _WaterColorDeep ("Deep Water Color", Color) = (0.15, 0.4, 0.8, 0.9)
         _FoamColor ("Foam Color", Color) = (1, 1, 1, 1)
         
+        [Header(Effect Colors)]
+        _FlowColor ("Flow/Streak Color", Color) = (1, 1, 1, 1)
+        _CausticsColor ("Caustics Color", Color) = (1, 1, 1, 1)
+        
         [Header(Shape)]
         _Cutoff ("Cutoff", Range(0,1)) = 0.1
         _Smoothness ("Edge Smoothness", Range(0.01, 0.2)) = 0.05
         
-        [Header(Water Animation)]
-        _FlowSpeed ("Flow Speed", Range(0, 3)) = 1.0
-        _CausticsScale ("Caustics Scale", Range(1, 50)) = 15
-        _CausticsSpeed ("Caustics Speed", Range(0, 2)) = 0.5
-        _CausticsIntensity ("Caustics Intensity", Range(0, 1)) = 0.3
+        [Header(Flow and Streaks)]
+        _FlowTex ("Flow Texture", 2D) = "gray" {}
+        _FlowScale ("Flow Scale", Range(1, 5000)) = 15
+        _FlowStretchX ("Flow Stretch X", Range(0.1, 5)) = 0.3
+        _FlowStretchY ("Flow Stretch Y", Range(0.1, 5)) = 1.5
+        _FlowSpeed ("Flow Speed", Range(0, 300)) = 1.0
+        _FlowTexBlend ("Flow Texture Blend", Range(0, 1)) = 0.0
         
-        [Header(Foam Settings)]
-        _FoamEdgeWidth ("Edge Foam Width", Range(0, 0.3)) = 0.15
-        _FoamNoiseScale ("Foam Noise Scale", Range(1, 100)) = 40
+        [Header(Caustics)]
+        _CausticsTex ("Caustics Texture", 2D) = "gray" {}
+        _CausticsScale ("Caustics Scale", Range(1, 50)) = 15
+        _CausticsStretchX ("Caustics Stretch X", Range(0.1, 5)) = 1.0
+        _CausticsStretchY ("Caustics Stretch Y", Range(0.1, 5)) = 1.0
+        _CausticsSpeed ("Caustics Speed", Range(0, 2)) = 0.5
+        _CausticsTexBlend ("Caustics Texture Blend", Range(0, 1)) = 0.0
+        
+        [Header(Foam)]
+        _FoamTex ("Foam Texture", 2D) = "gray" {}
+        _FoamScale ("Foam Scale", Range(1, 80000)) = 40
+        _FoamStretchX ("Foam Stretch X", Range(0.1, 5)) = 0.5
+        _FoamStretchY ("Foam Stretch Y", Range(0.1, 5)) = 1.2
         _FoamSpeed ("Foam Animation Speed", Range(0, 5)) = 2.5
-        _FoamIntensity ("Foam Intensity", Range(0, 3)) = 0.8
-        _WallFoamIntensity ("Wall Foam Intensity", Range(0, 5)) = 2.0
-        _TopFoamIntensity ("Top/Frontier Foam", Range(0, 3)) = 1.5
+        _FoamTexBlend ("Foam Texture Blend", Range(0, 1)) = 0.0
+        _FoamEdgeWidth ("Edge Foam Width", Range(0, 0.3)) = 0.15
         _FoamThreshold ("Foam Threshold", Range(0, 1)) = 0.45
         _FoamOpacity ("Foam Opacity", Range(0, 1)) = 0.85
+        
+        [Header(Detail Breakup)]
+        _DetailTex ("Detail Texture", 2D) = "gray" {}
+        _DetailScale ("Detail Scale", Range(1, 100)) = 20
+        _DetailStretchX ("Detail Stretch X", Range(0.1, 5)) = 1.0
+        _DetailStretchY ("Detail Stretch Y", Range(0.1, 5)) = 1.0
+        _DetailSpeed ("Detail Speed", Range(0, 2)) = 0.5
+        _DetailTexBlend ("Detail Texture Blend", Range(0, 1)) = 0.0
         
         [Header(Transparency)]
         _CoreAlpha ("Core Alpha", Range(0.3, 1)) = 0.8
         _EdgeAlpha ("Edge Alpha", Range(0, 1)) = 0.6
         
-        [Header(Fresnel Rim)]
+        [Header(Lighting Settings)]
         _FresnelPower ("Fresnel Power", Range(1, 5)) = 2.0
-        _FresnelIntensity ("Fresnel Intensity", Range(0, 1)) = 0.4
+        _SpecularPower ("Specular Sharpness", Range(1, 128)) = 32
         
         [Header(Source Position)]
         _SourceY ("Source Y Position", Range(-10, 10)) = -5
@@ -70,32 +116,79 @@ Shader "Custom/WaterJetShader"
             sampler2D _ObstacleTex;
             float4 _MainTex_TexelSize;
             
+            // Texture samplers
+            sampler2D _FlowTex;
+            sampler2D _CausticsTex;
+            sampler2D _FoamTex;
+            sampler2D _DetailTex;
+            
             fixed4 _WaterColor;
             fixed4 _WaterColorDeep;
             fixed4 _FoamColor;
+            fixed4 _FlowColor;
+            fixed4 _CausticsColor;
             
             float _Cutoff;
             float _Smoothness;
             
-            float _FlowSpeed;
-            float _CausticsScale;
-            float _CausticsSpeed;
+            // Master intensities
+            float _LightingIntensity;
+            float _SpecularIntensity;
+            float _FresnelIntensity;
             float _CausticsIntensity;
-            
-            float _FoamEdgeWidth;
-            float _FoamNoiseScale;
-            float _FoamSpeed;
+            float _FlowIntensity;
             float _FoamIntensity;
             float _WallFoamIntensity;
             float _TopFoamIntensity;
+            float _DetailIntensity;
+            float _DepthColorBlend;
+            
+            // Threshold and contrast
+            float _FlowThreshold;
+            float _FlowContrast;
+            float _CausticsThreshold;
+            float _CausticsContrast;
+            float _FoamNoiseThreshold;
+            float _FoamNoiseContrast;
+            float _DetailThreshold;
+            float _DetailContrast;
+            
+            // Flow params
+            float _FlowScale;
+            float _FlowStretchX;
+            float _FlowStretchY;
+            float _FlowSpeed;
+            float _FlowTexBlend;
+            
+            // Caustics params
+            float _CausticsScale;
+            float _CausticsStretchX;
+            float _CausticsStretchY;
+            float _CausticsSpeed;
+            float _CausticsTexBlend;
+            
+            // Foam params
+            float _FoamScale;
+            float _FoamStretchX;
+            float _FoamStretchY;
+            float _FoamSpeed;
+            float _FoamTexBlend;
+            float _FoamEdgeWidth;
             float _FoamThreshold;
             float _FoamOpacity;
+            
+            // Detail params
+            float _DetailScale;
+            float _DetailStretchX;
+            float _DetailStretchY;
+            float _DetailSpeed;
+            float _DetailTexBlend;
             
             float _CoreAlpha;
             float _EdgeAlpha;
             
             float _FresnelPower;
-            float _FresnelIntensity;
+            float _SpecularPower;
             
             float _SourceY;
 
@@ -125,36 +218,97 @@ Shader "Custom/WaterJetShader"
                 return lerp(lerp(a, b, f.x), lerp(c, d, f.x), f.y);
             }
             
-            // Caustics pattern
-            float Caustics(float2 uv, float time) {
-                float2 p = uv * _CausticsScale;
+            // Apply threshold and contrast to noise value
+            float ApplyThresholdContrast(float value, float threshold, float contrast) {
+                // Subtract threshold, so values below become negative (then clamped to 0)
+                float v = value - threshold;
+                // Remap remaining range and apply contrast
+                v = saturate(v / max(1.0 - threshold, 0.001));
+                // Apply contrast (power curve)
+                v = pow(v, contrast);
+                return v;
+            }
+            
+            // Stretched UV helper
+            float2 StretchUV(float2 uv, float stretchX, float stretchY, float scale) {
+                return float2(uv.x * stretchX, uv.y * stretchY) * scale;
+            }
+            
+            // Sample texture or procedural noise with blend
+            float SampleFlowNoise(float2 uv, float time) {
+                float2 stretchedUV = StretchUV(uv, _FlowStretchX, _FlowStretchY, _FlowScale);
+                float2 animUV = stretchedUV + float2(0, -time * _FlowSpeed);
                 
-                // Two layers of animated noise for caustic look
+                // Procedural version - multiple layers for streaky look
+                float proc1 = Noise(animUV);
+                float proc2 = Noise(animUV * 2.0 + float2(17.3, 0));
+                float proc3 = Noise(animUV * 4.0 + float2(0, 31.7));
+                float procedural = (proc1 + proc2 * 0.5 + proc3 * 0.25) / 1.75;
+                
+                // Texture version
+                float2 texUV = animUV * 0.1;
+                float textured = tex2D(_FlowTex, texUV).r;
+                
+                float result = lerp(procedural, textured, _FlowTexBlend);
+                return ApplyThresholdContrast(result, _FlowThreshold, _FlowContrast);
+            }
+            
+            // Caustics pattern
+            float SampleCaustics(float2 uv, float time) {
+                float2 stretchedUV = StretchUV(uv, _CausticsStretchX, _CausticsStretchY, _CausticsScale);
+                
+                // Procedural caustics
+                float2 p = stretchedUV;
                 float c1 = Noise(p + float2(time * 0.3, time * 0.2));
                 float c2 = Noise(p * 1.5 + float2(-time * 0.2, time * 0.4));
                 float c3 = Noise(p * 2.0 + float2(time * 0.1, -time * 0.3));
+                float procedural = c1 * c2 * c3;
+                procedural = pow(procedural, 0.5) * 3.0;
+                procedural = saturate(procedural);
                 
-                // Combine and create bright caustic lines
-                float caustic = c1 * c2 * c3;
-                caustic = pow(caustic, 0.5) * 3.0;
+                // Texture version
+                float2 texUV1 = stretchedUV * 0.1 + float2(time * 0.05, time * 0.03);
+                float2 texUV2 = stretchedUV * 0.15 + float2(-time * 0.03, time * 0.06);
+                float tex1 = tex2D(_CausticsTex, texUV1).r;
+                float tex2 = tex2D(_CausticsTex, texUV2).r;
+                float textured = saturate(tex1 * tex2 * 3.0);
                 
-                return saturate(caustic);
+                float result = lerp(procedural, textured, _CausticsTexBlend);
+                return ApplyThresholdContrast(result, _CausticsThreshold, _CausticsContrast);
             }
             
             // Foam noise pattern
-            float FoamNoise(float2 uv, float time) {
-                float2 p = uv * _FoamNoiseScale;
+            float SampleFoamNoise(float2 uv, float time) {
+                float2 stretchedUV = StretchUV(uv, _FoamStretchX, _FoamStretchY, _FoamScale);
                 
-                // Animated bubble-like noise
-                float n1 = Noise(p + float2(0, time * _FoamSpeed));
-                float n2 = Noise(p * 2.0 + float2(time * _FoamSpeed * 0.7, 0));
-                float n3 = Noise(p * 4.0 - float2(0, time * _FoamSpeed * 0.5));
+                // Procedural
+                float n1 = Noise(stretchedUV + float2(0, time * _FoamSpeed));
+                float n2 = Noise(stretchedUV * 2.0 + float2(time * _FoamSpeed * 0.7, 0));
+                float n3 = Noise(stretchedUV * 4.0 - float2(0, time * _FoamSpeed * 0.5));
+                float procedural = (n1 + n2 * 0.5 + n3 * 0.25) / 1.75;
+                procedural = pow(procedural, 0.7);
                 
-                // Create bubbly foam pattern
-                float foam = (n1 + n2 * 0.5 + n3 * 0.25) / 1.75;
-                foam = pow(foam, 0.7);
+                // Texture version
+                float2 texUV = stretchedUV * 0.1 + float2(0, -time * _FoamSpeed * 0.1);
+                float textured = tex2D(_FoamTex, texUV).r;
                 
-                return foam;
+                float result = lerp(procedural, textured, _FoamTexBlend);
+                return ApplyThresholdContrast(result, _FoamNoiseThreshold, _FoamNoiseContrast);
+            }
+            
+            // Detail variation noise
+            float SampleDetailNoise(float2 uv, float time) {
+                float2 stretchedUV = StretchUV(uv, _DetailStretchX, _DetailStretchY, _DetailScale);
+                
+                // Procedural
+                float procedural = Noise(stretchedUV + time * _DetailSpeed);
+                
+                // Texture version
+                float2 texUV = stretchedUV * 0.1 + float2(time * _DetailSpeed * 0.05, 0);
+                float textured = tex2D(_DetailTex, texUV).r;
+                
+                float result = lerp(procedural, textured, _DetailTexBlend);
+                return ApplyThresholdContrast(result, _DetailThreshold, _DetailContrast);
             }
 
             // Check if pixel is an obstacle
@@ -163,10 +317,8 @@ Shader "Custom/WaterJetShader"
                 return (obs.r > 0.5 && obs.g < 0.4 && obs.b < 0.4) ? 1.0 : 0.0;
             }
             
-            // Check if pixel is enemy slime (green in obstacle map or we need separate data)
+            // Check if pixel is enemy slime
             float IsEnemyNearby(float2 uv) {
-                // For now, check obstacle map for non-red, non-black areas
-                // We'll improve this with actual enemy cell data later
                 fixed4 obs = tex2D(_ObstacleTex, uv);
                 float isGreen = (obs.g > 0.4 && obs.r < 0.5 && obs.b < 0.5) ? 1.0 : 0.0;
                 return isGreen;
@@ -185,44 +337,22 @@ Shader "Custom/WaterJetShader"
                         
                         if (IsObstacle(sampleUV) > 0.5) continue;
                         
-                        float weight = 1.0 / (1.0 + length(float2(x, y)));
-                        sum += tex2D(_MainTex, sampleUV).r * weight;
-                        total += weight;
+                        float w = 1.0 / (1.0 + length(float2(x, y)));
+                        sum += tex2D(_MainTex, sampleUV).r * w;
+                        total += w;
                     }
                 }
                 
-                if (total < 0.01) return tex2D(_MainTex, uv).r;
-                return sum / total;
+                return total > 0 ? sum / total : 0;
             }
-            
-            // Detect edge of water mass - returns how much this pixel is on the edge
-            float DetectEdge(float2 uv, float val) {
-                float delta = 0.008;
-                
-                float right = SampleSmooth(uv + float2(delta, 0), 1.0);
-                float left = SampleSmooth(uv + float2(-delta, 0), 1.0);
-                float up = SampleSmooth(uv + float2(0, delta), 1.0);
-                float down = SampleSmooth(uv + float2(0, -delta), 1.0);
-                
-                // Strong edge where we border empty space
-                float emptyRight = (right < _Cutoff) ? 1.0 : 0.0;
-                float emptyLeft = (left < _Cutoff) ? 1.0 : 0.0;
-                float emptyUp = (up < _Cutoff) ? 1.0 : 0.0;
-                float emptyDown = (down < _Cutoff) ? 1.0 : 0.0;
-                
-                float edge = (emptyRight + emptyLeft + emptyUp + emptyDown) * 0.4;
-                
-                return saturate(edge);
-            }
-            
-            // Detect if near obstacle (for foam on walls) - multi-sample for thicker detection
+
+            // Detect if near obstacle (for foam on walls)
             float NearObstacle(float2 uv) {
                 float near = 0;
                 
-                // Multiple radii for gradient foam
                 for (int r = 1; r <= 3; r++) {
                     float delta = 0.008 * r;
-                    float weight = 1.0 / r; // Closer = stronger
+                    float weight = 1.0 / r;
                     
                     near += IsObstacle(uv + float2(delta, 0)) * weight;
                     near += IsObstacle(uv + float2(-delta, 0)) * weight;
@@ -237,24 +367,36 @@ Shader "Custom/WaterJetShader"
                 return saturate(near * 0.3);
             }
             
-            // Detect frontier - top edge where water is pushing into empty/enemy space
+            // Detect frontier - ANY edge where water meets empty space
             float DetectFrontier(float2 uv, float val) {
+                if (val <= _Cutoff) return 0;
+                
                 float delta = 0.012;
+                float jitter = Noise(uv * 150.0) * 0.006;
                 
-                // Check if there's less water above us
-                float up1 = SampleSmooth(uv + float2(0, delta), 1.0);
-                float up2 = SampleSmooth(uv + float2(0, delta * 2), 1.0);
-                float up3 = SampleSmooth(uv + float2(0, delta * 3), 1.0);
-                
-                // Frontier if we have water but above is empty
                 float frontier = 0;
-                if (val > _Cutoff) {
-                    frontier += (up1 < _Cutoff) ? 1.0 : 0.0;
-                    frontier += (up2 < _Cutoff) ? 0.7 : 0.0;
-                    frontier += (up3 < _Cutoff) ? 0.4 : 0.0;
-                }
                 
-                return saturate(frontier * 0.6);
+                // Check all directions for empty space
+                float right1 = SampleSmooth(uv + float2(delta + jitter, 0), 1.0);
+                float right2 = SampleSmooth(uv + float2(delta * 2, jitter), 1.0);
+                float left1 = SampleSmooth(uv + float2(-delta + jitter, 0), 1.0);
+                float left2 = SampleSmooth(uv + float2(-delta * 2, -jitter), 1.0);
+                float up1 = SampleSmooth(uv + float2(jitter, delta), 1.0);
+                float up2 = SampleSmooth(uv + float2(-jitter, delta * 2), 1.0);
+                float down1 = SampleSmooth(uv + float2(jitter, -delta), 1.0);
+                float down2 = SampleSmooth(uv + float2(-jitter, -delta * 2), 1.0);
+                
+                // Soft detection - any direction bordering empty = frontier
+                frontier += smoothstep(_Cutoff + 0.05, _Cutoff - 0.05, right1);
+                frontier += smoothstep(_Cutoff + 0.05, _Cutoff - 0.05, right2) * 0.5;
+                frontier += smoothstep(_Cutoff + 0.05, _Cutoff - 0.05, left1);
+                frontier += smoothstep(_Cutoff + 0.05, _Cutoff - 0.05, left2) * 0.5;
+                frontier += smoothstep(_Cutoff + 0.05, _Cutoff - 0.05, up1);
+                frontier += smoothstep(_Cutoff + 0.05, _Cutoff - 0.05, up2) * 0.5;
+                frontier += smoothstep(_Cutoff + 0.05, _Cutoff - 0.05, down1);
+                frontier += smoothstep(_Cutoff + 0.05, _Cutoff - 0.05, down2) * 0.5;
+                
+                return saturate(frontier * 0.25);
             }
 
             fixed4 frag (v2f i) : SV_Target {
@@ -270,107 +412,98 @@ Shader "Custom/WaterJetShader"
                 
                 if (alpha < 0.01) discard;
 
-                // === DISTANCE FROM SOURCE ===
-                float distFromSource = uv.y;
-                float sourceInfluence = 1.0 - saturate(distFromSource * 0.8);
+                // === BASE COLOR (always starts here) ===
+                float thickness = saturate(val * 2.0);
+                float coreAmount = thickness * thickness;
                 
-                // === FLOW ANIMATION ===
-                float2 flowUV = uv;
-                flowUV.y -= time * _FlowSpeed * 0.1;
-                
-                // === CAUSTICS ===
-                float caustics = Caustics(flowUV, time * _CausticsSpeed);
-
-                // === VERTICAL JET STREAKS ===
-                float jetStreaks = Noise(float2(uv.x * 50.0, uv.y * 5.0 - time * _FlowSpeed * 2.0));
-                jetStreaks = smoothstep(0.4, 0.6, jetStreaks) * 0.15;
+                // Depth color blend - 0 means only WaterColor, 1 means full blend to deep
+                fixed4 waterCol = lerp(_WaterColor, lerp(_WaterColor, _WaterColorDeep, coreAmount), _DepthColorBlend);
                 
                 // === FOAM DETECTION ===
                 float nearWall = NearObstacle(uv);
                 float frontier = DetectFrontier(uv, val);
                 
-                // === FOAM NOISE ===
-                float foamNoise = FoamNoise(uv, time);
-                // Add variation - some areas more foamy than others
-                float foamVariation = Noise(uv * 20.0 + time * 0.5);
-                foamNoise = foamNoise * 0.7 + foamVariation * 0.3;
+                // === FOAM (only if intensities > 0) ===
+                float finalFoam = 0;
+                float totalFoamIntensity = _FoamIntensity + _WallFoamIntensity + _TopFoamIntensity;
                 
-                // === CALCULATE FOAM AMOUNTS ===
-                // Edge foam band: stable foam near the water boundary
-                float safeFoamWidth = max(_FoamEdgeWidth, 1e-4);
-                float edgeBand = saturate(1.0 - (val - _Cutoff) / safeFoamWidth);
-                edgeBand *= alpha; // only inside water
-                float edgeFoam = edgeBand * _FoamIntensity;
+                if (totalFoamIntensity > 0.001) {
+                    float foamNoise = SampleFoamNoise(uv, time);
+                    float foamVariation = SampleDetailNoise(uv, time);
+                    foamNoise = foamNoise * (1.0 - _DetailIntensity) + foamVariation * _DetailIntensity;
+                    
+                    float safeFoamWidth = max(_FoamEdgeWidth, 1e-4);
+                    float edgeBand = saturate(1.0 - (val - _Cutoff) / safeFoamWidth);
+                    edgeBand *= alpha;
+                    float edgeFoam = edgeBand * _FoamIntensity;
+                    
+                    float wallFoam = nearWall * _WallFoamIntensity;
+                    float topFoam = frontier * _TopFoamIntensity;
+                    
+                    float foamAmount = saturate(edgeFoam + wallFoam + topFoam);
+                    float foamWithNoise = foamAmount * lerp(0.65, 1.0, foamNoise);
+                    finalFoam = smoothstep(_FoamThreshold, 1.0, foamWithNoise);
+                    finalFoam = max(finalFoam, wallFoam * 0.35);
+                    finalFoam = saturate(finalFoam);
+                }
                 
-                // Wall/obstacle foam (around windows) - should be WHITE and strong
-                float wallFoam = nearWall * _WallFoamIntensity;
+                // === FLOW/STREAKS (only if intensity > 0) ===
+                if (_FlowIntensity > 0.001) {
+                    float flowNoise = SampleFlowNoise(uv, time);
+                    float jetStreaks = smoothstep(0.4, 0.6, flowNoise) * _FlowIntensity;
+                    // Apply flow color - can brighten, darken, or tint
+                    float3 flowEffect = (_FlowColor.rgb - 0.5) * 2.0 * jetStreaks;
+                    waterCol.rgb += flowEffect * (1.0 - finalFoam);
+                }
                 
-                // Top frontier foam (where water pushes up)
-                float topFoam = frontier * _TopFoamIntensity;
+                // === CAUSTICS (only if intensity > 0) ===
+                if (_CausticsIntensity > 0.001) {
+                    float caustics = SampleCaustics(uv, time * _CausticsSpeed);
+                    // Apply caustics color - can brighten, darken, or tint
+                    float3 causticsEffect = (_CausticsColor.rgb - 0.5) * 2.0 * caustics * _CausticsIntensity;
+                    waterCol.rgb += causticsEffect * (1.0 - finalFoam);
+                }
                 
-                // Combine all foam sources
-                float foamAmount = saturate(edgeFoam + wallFoam + topFoam);
-                
-                // Apply noise to foam (keep a minimum so foam doesn't flicker away)
-                float foamWithNoise = foamAmount * lerp(0.65, 1.0, foamNoise);
-                
-                // Threshold for crisp foam edges (FoamThreshold ~0.3–0.6 is typical)
-                float finalFoam = smoothstep(_FoamThreshold, 1.0, foamWithNoise);
-                
-                // Keep some foam around obstacles even if noise is low
-                finalFoam = max(finalFoam, wallFoam * 0.35);
-                finalFoam = saturate(finalFoam);
-                
-                // === BASE COLOR ===
-                float thickness = saturate(val * 2.0);
-                // Core detection - how surrounded by water are we?
-                float coreAmount = thickness * thickness; // Simple: thicker = more core
-                float edginess = saturate(edgeBand + nearWall * 0.5 + frontier * 0.5);
-                fixed4 waterCol = lerp(_WaterColor, _WaterColorDeep, coreAmount);
-                // Lighten edges slightly but keep blue
-                waterCol.rgb = lerp(waterCol.rgb, waterCol.rgb * 1.3, edginess * 0.3);
-                
-                // Add caustics to water (not on foam)
-                waterCol.rgb += caustics * _CausticsIntensity * (1.0 - finalFoam);
-                waterCol.rgb += jetStreaks * (1.0 - finalFoam) * coreAmount;
-                
-                // === FAKE NORMAL FOR SHADING ===
-                float delta = 0.006;
-                float right = SampleSmooth(uv + float2(delta, 0), 1.0);
-                float up = SampleSmooth(uv + float2(0, delta), 1.0);
-                float left = SampleSmooth(uv + float2(-delta, 0), 1.0);
-                float down = SampleSmooth(uv + float2(0, -delta), 1.0);
-                
-                float3 normal;
-                normal.x = (left - right) * 2.0;
-                normal.y = (down - up) * 2.0;
-                normal.z = 1.0;
-                normal = normalize(normal);
-                
-                // Simple lighting
-                float3 lightDir = normalize(float3(-0.3, 0.5, 1.0));
-                float NdotL = saturate(dot(normal, lightDir));
-                
-                // Fresnel rim
-                float3 viewDir = float3(0, 0, 1);
-                float fresnel = pow(1.0 - saturate(dot(normal, viewDir)), _FresnelPower);
-                fresnel *= _FresnelIntensity;
-                
-                // Specular highlight
-                float3 halfDir = normalize(lightDir + viewDir);
-                float spec = pow(saturate(dot(normal, halfDir)), 32) * 0.8;
-                
-                // === COMBINE ===
-                fixed4 col = waterCol;
-                
-                // Apply lighting to water
-                col.rgb *= (0.7 + NdotL * 0.4);
-                col.rgb += spec * (1.0 - finalFoam);
-                
-                // Add fresnel rim
-                col.rgb += fresnel * _WaterColor.rgb * 0.5 * (1.0 - finalFoam);
+                // === LIGHTING (only if intensity > 0) ===
+                if (_LightingIntensity > 0.001 || _SpecularIntensity > 0.001 || _FresnelIntensity > 0.001) {
+                    float delta = 0.006;
+                    float right = SampleSmooth(uv + float2(delta, 0), 1.0);
+                    float up = SampleSmooth(uv + float2(0, delta), 1.0);
+                    float left = SampleSmooth(uv + float2(-delta, 0), 1.0);
+                    float down = SampleSmooth(uv + float2(0, -delta), 1.0);
+                    
+                    float3 normal;
+                    normal.x = (left - right) * 2.0;
+                    normal.y = (down - up) * 2.0;
+                    normal.z = 1.0;
+                    normal = normalize(normal);
+                    
+                    float3 lightDir = normalize(float3(-0.3, 0.5, 1.0));
+                    float3 viewDir = float3(0, 0, 1);
+                    
+                    // Diffuse lighting
+                    if (_LightingIntensity > 0.001) {
+                        float NdotL = saturate(dot(normal, lightDir));
+                        float lighting = lerp(1.0, 0.7 + NdotL * 0.4, _LightingIntensity);
+                        waterCol.rgb *= lighting;
+                    }
+                    
+                    // Specular
+                    if (_SpecularIntensity > 0.001) {
+                        float3 halfDir = normalize(lightDir + viewDir);
+                        float spec = pow(saturate(dot(normal, halfDir)), _SpecularPower);
+                        waterCol.rgb += spec * _SpecularIntensity * (1.0 - finalFoam);
+                    }
+                    
+                    // Fresnel rim
+                    if (_FresnelIntensity > 0.001) {
+                        float fresnel = pow(1.0 - saturate(dot(normal, viewDir)), _FresnelPower);
+                        waterCol.rgb += fresnel * _FresnelIntensity * _WaterColor.rgb * 0.5 * (1.0 - finalFoam);
+                    }
+                }
                 
                 // === APPLY FOAM ===
+                fixed4 col = waterCol;
                 col.rgb = lerp(col.rgb, _FoamColor.rgb, finalFoam);
                 
                 // === ALPHA ===
