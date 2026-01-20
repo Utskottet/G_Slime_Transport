@@ -44,8 +44,11 @@ public class SlimeRenderer : MonoBehaviour
 
         // Create instance from base material
         mat = new Material(baseMaterial);
-        mat.SetColor("_Color", c);
-        mat.SetColor("_ColorDark", c * 0.6f);
+        if (baseMaterial != mgr.slimeMaterial)
+        {
+            mat.SetColor("_Color", c);
+            mat.SetColor("_ColorDark", c * 0.6f);
+        }
         mat.SetTexture("_MainTex", maskTex);
         
         // Pass obstacle map to shader
