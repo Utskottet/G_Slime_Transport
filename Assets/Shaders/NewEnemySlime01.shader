@@ -4,7 +4,7 @@ Shader "Custom/NewEnemySlime01"
     {
         _MainTex ("Mask Texture", 2D) = "white" {}
         _ObstacleTex ("Obstacle Map", 2D) = "black" {}
-        _Color ("Slime Color", Color) = (0,1,0,1)
+        _Color ("Slime Color", Color) = (1,1,0,1)
         _ColorDark ("Dark Color", Color) = (0,0.5,0,1)
         _EdgeColor ("Edge Glow Color", Color) = (0.5,1,0.5,1)
         _Cutoff ("Cutoff", Range(0,1)) = 0.1
