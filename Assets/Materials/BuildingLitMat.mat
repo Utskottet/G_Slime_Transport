@@ -52,7 +52,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _ObstacleTex:
-        m_Texture: {fileID: 2800000, guid: 0f03e1e2699dd89459a74a2500cc91d9, type: 3}
+        m_Texture: {fileID: 2800000, guid: 528945054d5837f498f782d225a3965e, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _OcclusionMap:

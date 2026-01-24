@@ -83,7 +83,7 @@ Material:
     m_Floats:
     - _BumpScale: 1
     - _CausticsContrast: 4.9
-    - _CausticsIntensity: 0.03
+    - _CausticsIntensity: 0.02
     - _CausticsScale: 21.8
     - _CausticsSpeed: 1.696
     - _CausticsStretchX: 2.3
@@ -146,7 +146,7 @@ Material:
     - _WallFoamIntensity: 0
     - _ZWrite: 1
     m_Colors:
-    - _CausticsColor: {r: 0, g: 0, b: 0, a: 1}
+    - _CausticsColor: {r: 0.008365914, g: 0.29559743, b: 0.03025022, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _FlowColor: {r: 0.36066324, g: 0.52201253, b: 0, a: 1}
