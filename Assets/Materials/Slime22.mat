@@ -151,6 +151,6 @@ Material:
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _FlowColor: {r: 0.36066324, g: 0.52201253, b: 0, a: 1}
     - _FoamColor: {r: 0, g: 0.2578616, b: 0.017704967, a: 1}
-    - _WaterColor: {r: 0, g: 0.12578613, b: 0.0013240774, a: 1}
+    - _WaterColor: {r: 0.14580463, g: 1, b: 0.009433806, a: 1}
     - _WaterColorDeep: {r: 0.003921565, g: 0.32156864, b: 0.016321398, a: 1}
   m_BuildTextureStacks: []
